@@ -34,7 +34,7 @@ function render(): void {
           <div class="row header" role="row">
             <div role="columnheader"></div>
             <div role="columnheader" title="The end of the run's id. Use it with hunch show and hunch diff.">Run</div>
-            <div role="columnheader">Started</div>
+            <div role="columnheader" class="started">Started</div>
             <div role="columnheader" title="Why you ran it, written before the run (hunch run -m). Right-click a run to edit it.">Hypothesis</div>
             <div role="columnheader" title="This metric at the end of each run, and how it moved during the run.">${esc(s.headerMetric)}</div>
             <div role="columnheader" title="What the run showed, written after it, and whether to keep building on it or drop it (hunch note).">Conclusion</div>
@@ -62,7 +62,7 @@ function rowHtml(row: RowView, graphPx: number): string {
     <div class="row${selected ? " selected" : ""}" role="row" aria-selected="${selected}" data-id="${esc(row.id)}" data-vscode-context="${context}">
       <div role="gridcell" class="graph">${graphSvg(row, graphPx)}</div>
       <div role="gridcell" class="dim mono">${esc(row.short)}</div>
-      <div role="gridcell" class="dim">${esc(row.started)}</div>
+      <div role="gridcell" class="dim started">${esc(row.started)}</div>
       <div role="gridcell" class="${row.why ? "" : "dim italic"}" title="${esc(why)}">${esc(why)}</div>
       <div role="gridcell" class="metric" title="${esc(metricTooltip(row, metricText))}"><span class="${metricClass}">${esc(metricText)}</span>${curveSvg(row)}</div>
       <div role="gridcell" title="${esc(row.conclusion ?? "")}">${row.verdict ? `<span class="pill ${row.verdict === "keep" ? "keep" : "drop"}">${esc(row.verdict)}</span>` : ""}${esc(row.conclusion ?? "")}</div>

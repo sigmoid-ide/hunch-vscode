@@ -21,16 +21,17 @@ body {
 }
 
 .table-pane {
-  flex: 1 1 64%;
+  flex: 1 1 70%;
   min-width: 0;
   overflow: auto;
   display: flex;
   flex-direction: column;
+  container-type: inline-size;
 }
 
 .details-pane {
-  flex: 0 0 34%;
-  min-width: 240px;
+  flex: 0 0 30%;
+  min-width: 220px;
   border-left: 1px solid var(--vscode-panel-border, var(--vscode-widget-border, transparent));
   overflow: auto;
 }
@@ -43,12 +44,12 @@ body {
 
 .grid {
   outline: none;
-  min-width: 560px;
+  min-width: 440px;
 }
 
 .row {
   display: grid;
-  grid-template-columns: var(--graph) 64px 104px minmax(100px, 1fr) 150px minmax(100px, 1fr);
+  grid-template-columns: var(--graph) 60px 100px minmax(90px, 1fr) 140px minmax(90px, 1fr);
   height: 28px;
   align-items: center;
   cursor: default;
@@ -62,6 +63,12 @@ body {
 }
 
 .row > .graph { padding: 0; height: 28px; }
+
+/* When the table runs out of room, the start time goes first. */
+@container (max-width: 600px) {
+  .row { grid-template-columns: var(--graph) 60px minmax(90px, 1fr) 140px minmax(90px, 1fr); }
+  .row > .started { display: none; }
+}
 
 .row.header {
   position: sticky;

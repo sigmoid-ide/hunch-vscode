@@ -68,7 +68,7 @@
           "id": "hunch.runs",
           "name": "Runs",
           "icon": "media/hunch.svg",
-          "initialSize": 3
+          "initialSize": 4
         }
       ]
     },
