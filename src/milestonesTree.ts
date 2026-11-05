@@ -11,6 +11,8 @@ export class MilestonesTree implements vscode.TreeDataProvider<Scope>, vscode.Di
   private readonly state: HunchState;
   private readonly icons: { milestone: vscode.Uri };
   private items: Scope[] = [];
+  /** Keys this tree is selecting itself, whose selection events must not change the scope. */
+  private readonly revealing = new Set<string>();
 
   constructor(state: HunchState, extensionUri: vscode.Uri) {
     this.state = state;
@@ -20,7 +22,10 @@ export class MilestonesTree implements vscode.TreeDataProvider<Scope>, vscode.Di
       this.view,
       this.view.onDidChangeSelection((event) => {
         const picked = event.selection[0];
-        if (picked && picked.key !== state.scope.key) state.setScope(picked);
+        if (!picked) return;
+        // Selections this tree made itself (to follow the state) are not the user picking.
+        if (this.revealing.delete(picked.key)) return;
+        if (picked.key !== state.scope.key) state.setScope(picked);
       }),
       this.view.onDidChangeVisibility((event) => state.setVisible("milestones", event.visible)),
       state.onDidChange(() => this.refresh()),
@@ -33,6 +38,9 @@ export class MilestonesTree implements vscode.TreeDataProvider<Scope>, vscode.Di
     this.changed.fire();
     const current = this.items.find((s) => s.key === this.state.scope.key);
     if (current && this.view.visible && this.view.selection[0]?.key !== current.key) {
+      const key = current.key;
+      this.revealing.add(key);
+      setTimeout(() => this.revealing.delete(key), 1000); // in case no selection event comes
       void this.view.reveal(current, { select: true, focus: false });
     }
   }
