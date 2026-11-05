@@ -78,9 +78,11 @@ export function registerCommands(state: HunchState): vscode.Disposable[] {
       return compareRuns(state.store, parent, runs[0], short);
     }),
 
-    vscode.commands.registerCommand("hunch.saveMilestone", async () => {
+    /** Asks for the title and note, unless `options.title` gives them (for keybindings, other extensions and tests). */
+    vscode.commands.registerCommand("hunch.saveMilestone", async (options?: { title?: string; note?: string }) => {
       if (!(await trusted())) return;
-      const title = await vscode.window.showInputBox({
+      const given = typeof options?.title === "string" && options.title.trim() ? options : undefined;
+      const title = given?.title ?? await vscode.window.showInputBox({
         title: "Save Milestone (1/2)",
         prompt: "What did you find? Hunch sums up the runs on this branch since the last milestone and saves your code.",
         placeHolder: "e.g. warmup + cosine beats baseline",
@@ -88,7 +90,7 @@ export function registerCommands(state: HunchState): vscode.Disposable[] {
         ignoreFocusOut: true,
       });
       if (title === undefined) return;
-      const note = await vscode.window.showInputBox({
+      const note = given ? (given.note ?? "") : await vscode.window.showInputBox({
         title: "Save Milestone (2/2)",
         prompt: "Optional: what you found, in your own words.",
         placeHolder: "Press Enter to skip",
@@ -117,7 +119,8 @@ export function registerCommands(state: HunchState): vscode.Disposable[] {
       }
     }),
 
-    vscode.commands.registerCommand("hunch.runFile", async (resource?: vscode.Uri) => {
+    /** Asks why, unless `options.why` gives it (for keybindings, other extensions and tests). */
+    vscode.commands.registerCommand("hunch.runFile", async (resource?: vscode.Uri, options?: { why?: string }) => {
       const uri = resource instanceof vscode.Uri ? resource : vscode.window.activeTextEditor?.document.uri;
       if (!uri || uri.scheme !== "file") return void vscode.window.showInformationMessage("Open a Python file to run it with Hunch.");
       if (!(await trusted())) return;
@@ -126,7 +129,7 @@ export function registerCommands(state: HunchState): vscode.Disposable[] {
       const python = await interpreter(uri);
       const installed = await hasHunch(python, cwd);
       if (installed !== true) return void offerInstall(python, cwd, installed === "no-python");
-      const why = await vscode.window.showInputBox({
+      const why = typeof options?.why === "string" ? options.why : await vscode.window.showInputBox({
         title: `Run ${path.basename(uri.fsPath)} with Hunch`,
         prompt: "Why are you running this?",
         placeHolder: "Your hypothesis, e.g. warmup 1500 steps (optional)",
