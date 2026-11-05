@@ -47,6 +47,13 @@
   },
   "contributes": {
     "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "hunch-sidebar",
+          "title": "Hunch",
+          "icon": "media/hunch-activity.svg"
+        }
+      ],
       "panel": [
         {
           "id": "hunch",
@@ -56,29 +63,35 @@
       ]
     },
     "views": {
-      "hunch": [
+      "hunch-sidebar": [
         {
           "id": "hunch.milestones",
           "name": "Milestones",
-          "icon": "media/milestone.svg",
-          "initialSize": 1
-        },
+          "icon": "media/milestone.svg"
+        }
+      ],
+      "hunch": [
         {
           "type": "webview",
           "id": "hunch.runs",
           "name": "Runs",
-          "icon": "media/hunch.svg",
-          "initialSize": 4
+          "icon": "media/hunch.svg"
         }
       ]
     },
     "viewsWelcome": [
       {
         "view": "hunch.milestones",
-        "contents": "No milestones yet.\nWhen you find something worth remembering, save one: Hunch sums up the runs since the last milestone and saves your code.\n[Save Milestone](command:hunch.saveMilestone)"
+        "contents": "Your runs are in the Hunch tab of the panel.\n[Show Runs](command:hunch.showRuns)\nNo milestones yet. When you find something worth remembering, save one: Hunch sums up the runs since the last milestone and saves your code.\n[Save Milestone](command:hunch.saveMilestone)"
       }
     ],
     "commands": [
+      {
+        "command": "hunch.showRuns",
+        "title": "Show Runs",
+        "category": "Hunch",
+        "icon": "$(list-tree)"
+      },
       {
         "command": "hunch.refresh",
         "title": "Refresh",
@@ -143,6 +156,11 @@
     ],
     "menus": {
       "view/title": [
+        {
+          "command": "hunch.showRuns",
+          "when": "view == hunch.milestones",
+          "group": "navigation@1"
+        },
         {
           "command": "hunch.refresh",
           "when": "view == hunch.runs",

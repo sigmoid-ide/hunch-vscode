@@ -14,7 +14,8 @@ export class MilestonesTree implements vscode.TreeDataProvider<Scope>, vscode.Di
   /** Keys this tree is selecting itself, whose selection events must not change the scope. */
   private readonly revealing = new Set<string>();
 
-  constructor(state: HunchState, extensionUri: vscode.Uri) {
+  /** `onShown` runs when the list comes into view, so the runs open beside it. */
+  constructor(state: HunchState, extensionUri: vscode.Uri, onShown: () => void) {
     this.state = state;
     this.icons = { milestone: vscode.Uri.joinPath(extensionUri, "media", "milestone.svg") };
     this.view = vscode.window.createTreeView("hunch.milestones", { treeDataProvider: this, showCollapseAll: false });
@@ -27,7 +28,10 @@ export class MilestonesTree implements vscode.TreeDataProvider<Scope>, vscode.Di
         if (this.revealing.delete(picked.key)) return;
         if (picked.key !== state.scope.key) state.setScope(picked);
       }),
-      this.view.onDidChangeVisibility((event) => state.setVisible("milestones", event.visible)),
+      this.view.onDidChangeVisibility((event) => {
+        state.setVisible("milestones", event.visible);
+        if (event.visible) onShown();
+      }),
       state.onDidChange(() => this.refresh()),
     );
     state.setVisible("milestones", this.view.visible);

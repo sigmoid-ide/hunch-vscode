@@ -3,7 +3,9 @@ import type { Run } from "./model/run.ts";
 import { LATEST, scopes, type Scope } from "./model/scope.ts";
 import { Store, type Milestone } from "./model/store.ts";
 
-const POLL_MS = 2000;
+/** While a Hunch view is visible, and otherwise (for the status bar). */
+const VISIBLE_POLL_MS = 2000;
+const HIDDEN_POLL_MS = 10_000;
 
 /**
  * The project's runs and milestones, reloaded whenever .hunch changes, plus what the user
@@ -25,6 +27,7 @@ export class HunchState implements vscode.Disposable {
 
   private signature = "";
   private timer: ReturnType<typeof setInterval> | undefined;
+  private interval = 0;
   private readonly visibleViews = new Set<string>();
   private readonly changed = new vscode.EventEmitter<void>();
   readonly onDidChange = this.changed.event;
@@ -34,15 +37,20 @@ export class HunchState implements vscode.Disposable {
   }
 
   setVisible(view: string, visible: boolean): void {
+    const shown = visible && !this.visibleViews.has(view);
     if (visible) this.visibleViews.add(view);
     else this.visibleViews.delete(view);
-    if (this.visibleViews.size && !this.timer) {
-      this.reload();
-      this.timer = setInterval(() => this.reload(), POLL_MS);
-    } else if (!this.visibleViews.size && this.timer) {
-      clearInterval(this.timer);
-      this.timer = undefined;
-    }
+    if (shown) this.reload();
+    this.poll();
+  }
+
+  /** Polls quickly while a Hunch view is visible, and slowly otherwise. */
+  poll(): void {
+    const interval = this.visibleViews.size ? VISIBLE_POLL_MS : HIDDEN_POLL_MS;
+    if (interval === this.interval) return;
+    if (this.timer) clearInterval(this.timer);
+    this.interval = interval;
+    this.timer = setInterval(() => this.reload(), interval);
   }
 
   /** Reloads when .hunch changed, or always with `force`. */

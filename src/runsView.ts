@@ -43,6 +43,16 @@ export class RunsView implements vscode.WebviewViewProvider, vscode.Disposable {
     this.state.setVisible("runs", view.visible);
   }
 
+  /** Shows the Runs view; with `besideMilestones`, the keyboard focus stays in the Milestones list. */
+  async reveal(besideMilestones = false): Promise<void> {
+    if (this.view) {
+      this.view.show(besideMilestones);
+      return;
+    }
+    await vscode.commands.executeCommand("workbench.view.extension.hunch");
+    if (besideMilestones) await vscode.commands.executeCommand("hunch.milestones.focus");
+  }
+
   private receive(message: FromView): void {
     switch (message.type) {
       case "ready":
