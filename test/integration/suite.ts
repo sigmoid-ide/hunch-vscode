@@ -89,7 +89,7 @@ export async function run(): Promise<void> {
   // Screenshot mode: select a run in a maximized panel and hold, instead of testing.
   const screenshot = process.env.HUNCH_SCREENSHOT_SELECT;
   if (screenshot) {
-    for (const command of ["workbench.action.closeSidebar", "workbench.action.closeAuxiliaryBar", "notifications.clearAll", "workbench.action.toggleMaximizedPanel"]) {
+    for (const command of ["workbench.view.extension.hunch-sidebar", "workbench.action.closeAuxiliaryBar", "notifications.clearAll", "workbench.action.toggleMaximizedPanel"]) {
       await vscode.commands.executeCommand(command);
     }
     const run = new Store(workspaceRoot()).runs().find((r) => r.why === screenshot);

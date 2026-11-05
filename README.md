@@ -12,8 +12,8 @@
 
 </div>
 
-Your [Hunch](https://github.com/sigmoid-ide/hunch) runs in the bottom panel: what each run tried, how it went,
-and what it showed.
+Your [Hunch](https://github.com/sigmoid-ide/hunch) runs, one click away in the Activity Bar: what each run tried,
+how it went, and what it showed.
 
 ![The Hunch panel: milestones, the tree of runs with their metric curves and conclusions, and one run's details](docs/screenshot.png)
 
@@ -28,7 +28,8 @@ Works in VS Code 1.85 or newer, Cursor, Windsurf and VSCodium, and over Remote S
 ## Get started
 
 1. Install Hunch in your project's interpreter: `pip install sigmoid-hunch` (0.3.1 or newer).
-2. Open the **Hunch** tab in the bottom panel (Ctrl+J, or Cmd+J on macOS).
+2. Click the **Hunch** icon in the Activity Bar: your milestones open in the side bar and your runs in the panel.
+   The status bar shows how many runs you have, or how many are training; click it to see them.
 3. Run a script with **Run Python File with Hunch** from the Run button's menu, or from a terminal:
    `hunch run -m "why" -- python train.py`.
 
