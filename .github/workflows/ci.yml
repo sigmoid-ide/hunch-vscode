@@ -1,0 +1,65 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+
+      # A Python with Hunch from main, so the tests can run a script and save a milestone.
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          python-version: "3.12"
+      - name: Install Hunch
+        shell: bash
+        run: |
+          uv venv "$RUNNER_TEMP/hunch-env"
+          uv pip install --python "$RUNNER_TEMP/hunch-env" "git+https://github.com/sigmoid-ide/hunch"
+          if [ "$RUNNER_OS" = "Windows" ]; then bin=Scripts/python.exe; else bin=bin/python; fi
+          echo "HUNCH_TEST_PYTHON=$RUNNER_TEMP/hunch-env/$bin" >> "$GITHUB_ENV"
+
+      # The VS Code the integration tests run in.
+      - uses: actions/cache@v6.1.0
+        with:
+          path: .vscode-test
+          key: vscode-test-${{ runner.os }}
+      - name: Integration tests
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node test/integration/run.mjs
+      - name: Integration tests
+        if: runner.os != 'Linux'
+        run: node test/integration/run.mjs
+
+  package:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx vsce package --no-dependencies
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: hunch-vsix
+          path: "*.vsix"

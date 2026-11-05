@@ -9,7 +9,8 @@ import { runTests } from "@vscode/test-electron";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const extension = path.resolve(here, "..", "..");
 const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "hunch-it-"));
-fs.cpSync(path.join(extension, "test", "store"), workspace, { recursive: true });
+// HUNCH_TEST_WORKSPACE picks another project, such as the demo for screenshots.
+fs.cpSync(process.env.HUNCH_TEST_WORKSPACE || path.join(extension, "test", "store"), workspace, { recursive: true });
 // With a Python that has Hunch, the suite also runs a script and saves a milestone.
 if (process.env.HUNCH_TEST_PYTHON) {
   fs.mkdirSync(path.join(workspace, ".vscode"));

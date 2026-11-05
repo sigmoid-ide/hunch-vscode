@@ -86,6 +86,20 @@ export async function run(): Promise<void> {
   // Show the panel, so a screenshot of a held window shows the views too.
   await vscode.commands.executeCommand("workbench.view.extension.hunch");
 
+  // Screenshot mode: select a run in a maximized panel and hold, instead of testing.
+  const screenshot = process.env.HUNCH_SCREENSHOT_SELECT;
+  if (screenshot) {
+    for (const command of ["workbench.action.closeSidebar", "workbench.action.closeAuxiliaryBar", "notifications.clearAll", "workbench.action.toggleMaximizedPanel"]) {
+      await vscode.commands.executeCommand(command);
+    }
+    const run = new Store(workspaceRoot()).runs().find((r) => r.why === screenshot);
+    if (run) await vscode.commands.executeCommand("hunch.select", run.id);
+    await sleep(4000);
+    await vscode.commands.executeCommand("notifications.clearAll"); // notices that arrived while starting
+    await sleep(Number(process.env.HUNCH_TEST_HOLD_MS ?? 20_000));
+    return;
+  }
+
   let failed = 0;
   for (const [name, body] of tests) {
     try {
