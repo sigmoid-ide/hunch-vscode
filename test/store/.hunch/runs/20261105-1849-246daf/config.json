@@ -1,0 +1,10 @@
+{
+  "args": [
+    "C:/Users/user/Documents/development/kuri-studio/hunch/.venv/Scripts/python.exe",
+    "train.py",
+    "0.3"
+  ],
+  "values": {
+    "lr": 0.3
+  }
+}

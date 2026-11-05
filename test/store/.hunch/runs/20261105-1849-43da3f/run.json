@@ -1,0 +1,24 @@
+{
+  "format": 2,
+  "id": "20261105-1849-43da3f",
+  "started_at": "2026-11-05T18:49:47.753+05:00",
+  "source": "wrapper",
+  "command": [
+    "C:/Users/user/Documents/development/kuri-studio/hunch/.venv/Scripts/python.exe",
+    "train.py",
+    "0.1"
+  ],
+  "cwd": "C:\\work\\project",
+  "why": "baseline",
+  "parent": null,
+  "parent_source": null,
+  "line": null,
+  "main_metric": null,
+  "labels": {},
+  "git": null,
+  "host": {
+    "hostname": "host",
+    "os": "Windows-10-10.0.26300-SP0",
+    "slurm_job_id": null
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "format": 2,
+  "id": "20261105-1849-c1c296",
+  "created_at": "2026-11-05T18:49:52.654+05:00",
+  "title": "warmup beats baseline",
+  "description": "the spike is gone",
+  "summary": "2 runs (1 kept). Best val_loss 0.3333 (741c).",
+  "line": null,
+  "previous": null,
+  "runs": [
+    "20261105-1849-43da3f",
+    "20261105-1849-56741c"
+  ],
+  "best": "20261105-1849-56741c",
+  "metric": "val_loss",
+  "git": null
+}
