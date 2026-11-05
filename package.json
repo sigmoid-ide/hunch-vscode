@@ -1,0 +1,254 @@
+{
+  "name": "hunch",
+  "displayName": "Hunch",
+  "description": "Experiment journal for ML: every run's code, config, metrics and why, as a tree in your editor. Local files, no account.",
+  "version": "0.1.0",
+  "publisher": "sigmoid-ide",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/extension.cjs",
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sigmoid-ide/hunch-vscode"
+  },
+  "homepage": "https://github.com/sigmoid-ide/hunch",
+  "bugs": "https://github.com/sigmoid-ide/hunch-vscode/issues",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Data Science",
+    "Machine Learning",
+    "Visualization"
+  ],
+  "keywords": [
+    "experiment tracking",
+    "machine learning",
+    "deep learning",
+    "mlops",
+    "reproducibility"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "activationEvents": [
+    "workspaceContains:.hunch/runs"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Runs can be browsed, compared and annotated. Running Python (Run with Hunch, Save Milestone) needs a trusted workspace.",
+      "restrictedConfigurations": [
+        "hunch.interpreter"
+      ]
+    },
+    "virtualWorkspaces": false
+  },
+  "contributes": {
+    "viewsContainers": {
+      "panel": [
+        {
+          "id": "hunch",
+          "title": "Hunch",
+          "icon": "media/hunch.svg"
+        }
+      ]
+    },
+    "views": {
+      "hunch": [
+        {
+          "id": "hunch.milestones",
+          "name": "Milestones",
+          "icon": "media/milestone.svg",
+          "initialSize": 1
+        },
+        {
+          "type": "webview",
+          "id": "hunch.runs",
+          "name": "Runs",
+          "icon": "media/hunch.svg",
+          "initialSize": 3
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "hunch.milestones",
+        "contents": "No milestones yet.\nWhen you find something worth remembering, save one: Hunch sums up the runs since the last milestone and saves your code.\n[Save Milestone](command:hunch.saveMilestone)"
+      }
+    ],
+    "commands": [
+      {
+        "command": "hunch.refresh",
+        "title": "Refresh",
+        "category": "Hunch",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "hunch.compare",
+        "title": "Compare",
+        "category": "Hunch",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "hunch.saveMilestone",
+        "title": "Save Milestone...",
+        "category": "Hunch",
+        "icon": "$(milestone)"
+      },
+      {
+        "command": "hunch.showQuickRuns",
+        "title": "Show Quick Runs",
+        "category": "Hunch",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "hunch.hideQuickRuns",
+        "title": "Hide Quick Runs",
+        "category": "Hunch",
+        "icon": "$(filter-filled)"
+      },
+      {
+        "command": "hunch.keep",
+        "title": "Keep",
+        "category": "Hunch"
+      },
+      {
+        "command": "hunch.drop",
+        "title": "Drop",
+        "category": "Hunch"
+      },
+      {
+        "command": "hunch.writeConclusion",
+        "title": "Write Conclusion...",
+        "category": "Hunch"
+      },
+      {
+        "command": "hunch.editHypothesis",
+        "title": "Edit Hypothesis...",
+        "category": "Hunch"
+      },
+      {
+        "command": "hunch.openRunFolder",
+        "title": "Reveal Run Folder",
+        "category": "Hunch"
+      },
+      {
+        "command": "hunch.runFile",
+        "title": "Run Python File with Hunch",
+        "category": "Hunch",
+        "icon": "$(beaker)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "hunch.refresh",
+          "when": "view == hunch.runs",
+          "group": "navigation@1"
+        },
+        {
+          "command": "hunch.compare",
+          "when": "view == hunch.runs",
+          "group": "navigation@2"
+        },
+        {
+          "command": "hunch.saveMilestone",
+          "when": "view == hunch.runs || view == hunch.milestones",
+          "group": "navigation@3"
+        },
+        {
+          "command": "hunch.showQuickRuns",
+          "when": "view == hunch.runs && !hunch.showingQuickRuns",
+          "group": "navigation@4"
+        },
+        {
+          "command": "hunch.hideQuickRuns",
+          "when": "view == hunch.runs && hunch.showingQuickRuns",
+          "group": "navigation@4"
+        }
+      ],
+      "webview/context": [
+        {
+          "command": "hunch.compare",
+          "when": "webviewId == 'hunch.runs' && webviewSection == 'run'",
+          "group": "1_compare@1"
+        },
+        {
+          "command": "hunch.keep",
+          "when": "webviewId == 'hunch.runs' && webviewSection == 'run'",
+          "group": "2_verdict@1"
+        },
+        {
+          "command": "hunch.drop",
+          "when": "webviewId == 'hunch.runs' && webviewSection == 'run'",
+          "group": "2_verdict@2"
+        },
+        {
+          "command": "hunch.writeConclusion",
+          "when": "webviewId == 'hunch.runs' && webviewSection == 'run'",
+          "group": "2_verdict@3"
+        },
+        {
+          "command": "hunch.editHypothesis",
+          "when": "webviewId == 'hunch.runs' && webviewSection == 'run'",
+          "group": "3_edit@1"
+        },
+        {
+          "command": "hunch.openRunFolder",
+          "when": "webviewId == 'hunch.runs' && webviewSection == 'run'",
+          "group": "4_folder@1"
+        }
+      ],
+      "editor/title/run": [
+        {
+          "command": "hunch.runFile",
+          "when": "resourceLangId == python && !isInDiffEditor",
+          "group": "navigation@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "hunch.runFile",
+          "when": "resourceLangId == python"
+        },
+        {
+          "command": "hunch.showQuickRuns",
+          "when": "!hunch.showingQuickRuns"
+        },
+        {
+          "command": "hunch.hideQuickRuns",
+          "when": "hunch.showingQuickRuns"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Hunch",
+      "properties": {
+        "hunch.interpreter": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "markdownDescription": "Python interpreter that has Hunch installed (`pip install sigmoid-hunch`). Leave empty to use the interpreter selected in the Python extension, then `python` on PATH."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "check": "tsc --noEmit -p .",
+    "test": "node --test \"test/**/*.test.ts\"",
+    "package": "vsce package --no-dependencies",
+    "test:integration": "node esbuild.mjs && node test/integration/run.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "18.19.130",
+    "@types/vscode": "1.85.0",
+    "@vscode/test-electron": "3.1.0",
+    "@vscode/vsce": "4.1.0",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
+  }
+}
