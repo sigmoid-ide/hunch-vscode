@@ -10,6 +10,11 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const extension = path.resolve(here, "..", "..");
 const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "hunch-it-"));
 fs.cpSync(path.join(extension, "test", "store"), workspace, { recursive: true });
+// With a Python that has Hunch, the suite also runs a script and saves a milestone.
+if (process.env.HUNCH_TEST_PYTHON) {
+  fs.mkdirSync(path.join(workspace, ".vscode"));
+  fs.writeFileSync(path.join(workspace, ".vscode", "settings.json"), JSON.stringify({ "hunch.interpreter": process.env.HUNCH_TEST_PYTHON }, null, 2));
+}
 
 try {
   await runTests({
