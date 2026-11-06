@@ -8,6 +8,7 @@
 
 <a href="https://github.com/sigmoid-ide/hunch-vscode/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/sigmoid-ide/hunch-vscode/ci.yml?branch=main&style=for-the-badge&label=ci" alt="CI status" /></a>
 <a href="https://marketplace.visualstudio.com/items?itemName=sigmoid-ide.hunch"><img src="https://img.shields.io/badge/VS_Code-Marketplace-6E56CF?style=for-the-badge" alt="On the VS Code Marketplace" /></a>
+<a href="https://open-vsx.org/extension/sigmoid-ide/hunch"><img src="https://img.shields.io/badge/Open_VSX-Registry-6E56CF?style=for-the-badge" alt="On Open VSX" /></a>
 <a href="https://github.com/sigmoid-ide/hunch-vscode/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-6E56CF?style=for-the-badge" alt="License: Apache-2.0" /></a>
 
 </div>
@@ -28,7 +29,8 @@ Works in VS Code 1.85 or newer, Cursor, Windsurf and VSCodium, and over Remote S
 ## Get started
 
 1. Install the extension: search for **Hunch** in the Extensions view, or open it on the
-   [Marketplace](https://marketplace.visualstudio.com/items?itemName=sigmoid-ide.hunch).
+   [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=sigmoid-ide.hunch) or, for Cursor,
+   Windsurf and VSCodium, [Open VSX](https://open-vsx.org/extension/sigmoid-ide/hunch).
    Then install Hunch in your project's interpreter: `pip install sigmoid-hunch` (0.3.1 or newer).
 2. Click the **Hunch** icon in the Activity Bar: your milestones open in the side bar and your runs in the panel.
    The status bar shows how many runs you have, or how many are training; click it to see them.
