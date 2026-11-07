@@ -2,7 +2,7 @@
   "name": "hunch",
   "displayName": "Hunch",
   "description": "Experiment journal for ML: every run's code, config, metrics and why, as a tree in your editor. Local files, no account.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "sigmoid-ide",
   "license": "Apache-2.0",
   "type": "module",
