@@ -22,6 +22,8 @@ export class HunchState implements vscode.Disposable {
   scope: Scope = LATEST;
   selection: string[] = [];
   showAll = false;
+  /** Words to find in a run, typed in the Runs view; while there are any, the table shows matches from all runs. */
+  search = "";
   /** Set after saving a milestone: the milestones before it, so the new one can be shown. */
   selectNewMilestoneAfter: Set<string> | undefined;
 
@@ -83,9 +85,16 @@ export class HunchState implements vscode.Disposable {
     if (!this.loaded) this.reload();
   }
 
+  /** Choosing a milestone ends a search, so the table shows that milestone. */
   setScope(scope: Scope): void {
     this.scope = scope;
     this.selection = [];
+    this.search = "";
+    this.changed.fire();
+  }
+
+  setSearch(search: string): void {
+    this.search = search;
     this.changed.fire();
   }
 

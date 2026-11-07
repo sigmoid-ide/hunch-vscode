@@ -5,6 +5,7 @@ import { rows as layout, visible, width as rowWidth, type Row } from "./model/gr
 import { asArray, asObject, asString } from "./model/json.ts";
 import type { Run } from "./model/run.ts";
 import { runsIn, type Scope } from "./model/scope.ts";
+import { matches, searchWords } from "./model/search.ts";
 import { files } from "./model/snapshot.ts";
 import { readJson, type Milestone, type Store } from "./model/store.ts";
 
@@ -48,6 +49,8 @@ export interface ScreenView {
   quickRuns: { count: number; showing: boolean };
   details: DetailsView | null;
   message: string | null;
+  /** The search the table is showing, so the search box can follow a change made elsewhere. */
+  search: string;
 }
 
 export interface Inputs {
@@ -59,12 +62,17 @@ export interface Inputs {
   loaded: boolean;
   showAll: boolean;
   selection: string[];
+  /** Words to find in a run; a search looks through all runs, whatever the scope. */
+  search?: string;
   now?: number;
 }
 
 export function screen(input: Inputs): ScreenView {
   const now = input.now ?? Date.now();
-  const inScope = runsIn(input.scope, input.runs, input.milestones);
+  const words = searchWords(input.search ?? "");
+  const inScope = words.length
+    ? input.runs.filter((run) => matches(run, words, input.store.root))
+    : runsIn(input.scope, input.runs, input.milestones);
   const shown = visible(inScope, input.showAll);
   const laid = layout(shown);
   const short = fmt.shortIds(input.runs.map((run) => run.id));
@@ -76,7 +84,7 @@ export function screen(input: Inputs): ScreenView {
   let details: DetailsView | null = null;
   const byId = new Map(input.runs.map((run) => [run.id, run]));
   if (selection.length === 1) details = runDetails(byId.get(selection[0])!, byId, short, input.store, headerMetric);
-  else if (selection.length === 0 && input.scope.kind === "milestone") details = milestoneDetails(input.scope.milestone, input.scope.number, byId, short, input.store);
+  else if (selection.length === 0 && input.scope.kind === "milestone" && !words.length) details = milestoneDetails(input.scope.milestone, input.scope.number, byId, short, input.store);
 
   return {
     loaded: input.loaded,
@@ -84,10 +92,11 @@ export function screen(input: Inputs): ScreenView {
     graphWidth: Math.max(1, ...laid.map(rowWidth)),
     rows: laid.map((row) => rowView(row, short, input.mainMetric, headerMetric, now)),
     selection,
-    empty: emptyText(input, inScope, shown),
+    empty: emptyText(input, inScope, shown, words),
     quickRuns: { count: input.showAll ? quick : inScope.length - shown.length, showing: input.showAll && quick > 0 },
     details,
     message: selection.length > 1 ? `${selection.length} runs selected. Compare two of them with the Compare button.` : null,
+    search: input.search ?? "",
   };
 }
 
@@ -117,12 +126,15 @@ function rowView(row: Row, short: Map<string, string>, setting: string | undefin
   };
 }
 
-function emptyText(input: Inputs, inScope: Run[], shown: Run[]): string[] {
+function emptyText(input: Inputs, inScope: Run[], shown: Run[], words: string[]): string[] {
   if (!input.loaded) return ["Loading runs..."];
   if (!input.runs.length) {
     return ["No runs yet", "Record one with: hunch run -m \"your hypothesis\" -- python train.py", "or add hunch.init() to your training script."];
   }
   if (shown.length) return [];
+  if (words.length && !inScope.length) {
+    return [`No runs match "${input.search!.trim()}"`, "Search looks at hypotheses, conclusions, commands, config and run ids."];
+  }
   if (!inScope.length && input.scope.kind === "latest") return [`No runs since M${input.milestones.length}`, "Your next runs will appear here."];
   if (!inScope.length) return ["This milestone covers no runs"];
   return ["No runs to show"];
@@ -156,7 +168,7 @@ function runDetails(run: Run, byId: Map<string, Run>, short: Map<string, string>
   }
   add("Command", fmt.command(run, store.root));
   add("Code", code(run.dir, run.git));
-  add("Config", Object.entries(flatten(asObject(asObject(readJson(path.join(run.dir, "config.json"))).values)))
+  add("Config", Object.entries(fmt.flatten(asObject(asObject(readJson(path.join(run.dir, "config.json"))).values)))
     .map(([k, v]) => `${k} = ${fmt.value(v)}`).join("\n"));
   const env = asObject(readJson(path.join(run.dir, "env.json")));
   add("Environment", environment(env));
@@ -245,14 +257,4 @@ function gpus(env: Record<string, unknown>): string | undefined {
   const names = [...counts].map(([name, n]) => (n > 1 ? `${n} x ${name}` : name));
   const driver = list[0].driver;
   return names.join("\n") + (driver ? `\ndriver ${driver}` : "");
-}
-
-/** Nested config as dotted keys, like hunch's flatten. */
-function flatten(values: Record<string, unknown>, prefix = ""): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const [key, v] of Object.entries(values)) {
-    if (v && typeof v === "object" && !Array.isArray(v) && Object.keys(v).length) Object.assign(out, flatten(v as Record<string, unknown>, `${prefix}${key}.`));
-    else out[`${prefix}${key}`] = v;
-  }
-  return out;
 }

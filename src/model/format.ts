@@ -87,3 +87,13 @@ export function result(run: Run, key: string | undefined, now = Date.now()): str
     default: return run.status;
   }
 }
+
+/** Nested config as dotted keys, like hunch's flatten. */
+export function flatten(values: Record<string, unknown>, prefix = ""): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, v] of Object.entries(values)) {
+    if (v && typeof v === "object" && !Array.isArray(v) && Object.keys(v).length) Object.assign(out, flatten(v as Record<string, unknown>, `${prefix}${key}.`));
+    else out[`${prefix}${key}`] = v;
+  }
+  return out;
+}

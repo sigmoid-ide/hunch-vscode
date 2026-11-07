@@ -23,11 +23,37 @@ body {
 .table-pane {
   flex: 1 1 70%;
   min-width: 0;
-  overflow: auto;
   display: flex;
   flex-direction: column;
   container-type: inline-size;
 }
+
+/* The table scrolls under the search box, which stays put. */
+.table {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.search {
+  flex: none;
+  padding: 4px 6px;
+}
+
+.search input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 3px 6px;
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 2px;
+  font: inherit;
+  outline: none;
+}
+
+.search input:focus { border-color: var(--vscode-focusBorder); }
+.search input::placeholder { color: var(--vscode-input-placeholderForeground); }
 
 .details-pane {
   flex: 0 0 30%;

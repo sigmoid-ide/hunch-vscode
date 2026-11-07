@@ -19,6 +19,7 @@ how it went, and what it showed.
 ![The Hunch panel: milestones, the tree of runs with their metric curves and conclusions, and one run's details](docs/screenshot.png)
 
 - **The tree of runs**, with each run's hypothesis, main metric and its curve, and your conclusion. It updates while runs train.
+- **Search** all your runs by hypothesis, conclusion, command, config or run id.
 - **Run with Hunch**: in the Run button's menu, runs the current Python file under Hunch, asking why first.
 - **Keep or drop** a run and write its conclusion, from its details or a right-click.
 - **Compare** a run with the one it came from, or any two runs: config, metrics and every changed file.

@@ -9,7 +9,8 @@ type FromView =
   | { type: "select"; ids: string[] }
   | { type: "open"; id: string }
   | { type: "command"; command: string; args: unknown[] }
-  | { type: "toggleQuickRuns" };
+  | { type: "toggleQuickRuns" }
+  | { type: "search"; text: string };
 
 const ALLOWED_COMMANDS = new Set([
   "hunch.keep", "hunch.drop", "hunch.writeConclusion", "hunch.editHypothesis", "hunch.compare", "hunch.select", "hunch.reveal", "hunch.saveMilestone",
@@ -67,6 +68,9 @@ export class RunsView implements vscode.WebviewViewProvider, vscode.Disposable {
       case "toggleQuickRuns":
         this.state.setShowAll(!this.state.showAll);
         break;
+      case "search":
+        this.state.setSearch(message.text);
+        break;
       case "command":
         if (ALLOWED_COMMANDS.has(message.command)) void vscode.commands.executeCommand(message.command, ...message.args);
         break;
@@ -78,10 +82,11 @@ export class RunsView implements vscode.WebviewViewProvider, vscode.Disposable {
     const s = this.state;
     const data = screen({
       store: s.store, runs: s.runs, milestones: s.milestones, scope: s.scope, mainMetric: s.mainMetric,
-      loaded: s.loaded, showAll: s.showAll, selection: s.selection,
+      loaded: s.loaded, showAll: s.showAll, selection: s.selection, search: s.search,
     });
     void this.view.webview.postMessage({ type: "screen", data });
-    this.view.description = s.scope.kind === "milestone" ? `${s.scope.number}  ${s.scope.milestone.title}`
+    this.view.description = s.search.trim() ? undefined // a search looks through all runs
+      : s.scope.kind === "milestone" ? `${s.scope.number}  ${s.scope.milestone.title}`
       : s.scope.kind === "all" || !s.milestones.length ? undefined : "Since last milestone";
   }
 

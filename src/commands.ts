@@ -4,6 +4,7 @@ import { compareRuns } from "./compare.ts";
 import { shortIds } from "./model/format.ts";
 import type { Run } from "./model/run.ts";
 import { ALL, runsIn } from "./model/scope.ts";
+import { matches, searchWords } from "./model/search.ts";
 import { hasHunch, hunch, installInTerminal, interpreter, runInTerminal } from "./python.ts";
 import type { HunchState } from "./state.ts";
 
@@ -45,7 +46,10 @@ export function registerCommands(state: HunchState): vscode.Disposable[] {
 
     vscode.commands.registerCommand("hunch.select", (runId: string) => {
       state.ensureLoaded();
-      // A run outside the current milestone (such as a parent) is shown among all runs.
+      // A run the search leaves out (such as a parent) ends the search, so it shows.
+      const words = searchWords(state.search);
+      if (words.length && !state.runs.some((run) => run.id === runId && matches(run, words, state.store.root))) state.setSearch("");
+      // A run outside the current milestone is shown among all runs.
       if (!runsIn(state.scope, state.runs, state.milestones).some((run) => run.id === runId)) state.setScope(ALL);
       state.setSelection([runId]);
     }),

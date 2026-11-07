@@ -11,8 +11,10 @@ import { rows, visible } from "../src/model/graph.ts";
 import { parse, write } from "../src/model/json.ts";
 import { Run } from "../src/model/run.ts";
 import { LATEST, runsIn, scopes } from "../src/model/scope.ts";
+import { matches, searchWords } from "../src/model/search.ts";
 import { changes } from "../src/model/snapshot.ts";
 import { Store, timestamp } from "../src/model/store.ts";
+import { screen } from "../src/viewModel.ts";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "store");
 const store = new Store(root);
@@ -153,4 +155,27 @@ test("a run Ferry copies from another machine stays running while this computer 
   assert.equal(remote.status, "running");
   assert.deepEqual(remote.remote, { machine: "gpu-box", syncedAt: "2026-11-07T09:00:00+05:00" });
   assert.match(result(remote, undefined), /^running .* on gpu-box$/);
+});
+
+test("search finds runs by hypothesis, conclusion, verdict, status, command, config and id, every word", () => {
+  const found = (query: string) => runs.filter((r) => matches(r, searchWords(query), root)).map((r) => r.why);
+  assert.deepEqual(searchWords("  Higher   LR "), ["higher", "lr"]);
+  assert.deepEqual(found("HIGHER"), ["higher lr"]);
+  assert.deepEqual(found("приятно"), ["warmup"]); // its conclusion
+  assert.deepEqual(found("keep"), ["warmup"]);
+  assert.deepEqual(found("crashed"), ["typo"]);
+  assert.deepEqual(found("train.py fail"), ["typo"]); // its command
+  assert.deepEqual(found("lr = 0.3"), ["higher lr"]); // its config
+  assert.deepEqual(found(run("baseline").id.slice(-4)), ["baseline"]);
+  assert.deepEqual(found("warmup baseline"), []);
+});
+
+test("a search looks through every run, not only the chosen milestone's", () => {
+  const input = { store, runs, milestones: store.milestones(), scope: LATEST, mainMetric: undefined, loaded: true, showAll: false, selection: [] };
+  assert.deepEqual(screen(input).rows.map((r) => r.why), ["higher lr"]); // since the milestone, without the quick crash
+  assert.deepEqual(screen({ ...input, search: "warmup" }).rows.map((r) => r.why), ["warmup"]);
+  const none = screen({ ...input, search: "  no such run " });
+  assert.deepEqual(none.rows, []);
+  assert.equal(none.empty[0], 'No runs match "no such run"');
+  assert.equal(none.search, "  no such run ");
 });

@@ -14,6 +14,19 @@ let selection: string[] = [];
 let anchor: string | undefined;
 const app = document.getElementById("app")!;
 
+// Drawn once: redrawing the search box would lose what is being typed.
+app.innerHTML = `
+  <div class="layout">
+    <div class="table-pane">
+      <div class="search"><input id="search" type="text" placeholder="Search all runs" aria-label="Search all runs" spellcheck="false"></div>
+      <div id="table" class="table"></div>
+    </div>
+    <div id="details" class="details-pane"></div>
+  </div>`;
+const searchBox = document.getElementById("search") as HTMLInputElement;
+const tablePane = document.getElementById("table")!;
+const detailsPane = document.getElementById("details")!;
+
 window.addEventListener("message", (event) => {
   if (event.data?.type !== "screen") return;
   screen = event.data.data as ScreenView;
@@ -25,27 +38,25 @@ vscode.postMessage({ type: "ready" });
 function render(): void {
   if (!screen) return;
   const s = screen;
+  // Choosing a milestone ends a search; while typing, the box is the user's.
+  if (document.activeElement !== searchBox && searchBox.value !== s.search) searchBox.value = s.search;
   const graphPx = PADDING * 2 + LANE_WIDTH * Math.max(s.graphWidth, 1);
   const focused = document.activeElement?.id === "grid";
-  app.innerHTML = `
-    <div class="layout">
-      <div class="table-pane">
-        <div id="grid" class="grid" role="grid" aria-label="Runs" aria-multiselectable="true" tabindex="0">
-          <div class="row header" role="row">
-            <div role="columnheader"></div>
-            <div role="columnheader" title="The end of the run's id. Use it with hunch show and hunch diff.">Run</div>
-            <div role="columnheader" class="started">Started</div>
-            <div role="columnheader" title="Why you ran it, written before the run (hunch run -m). Right-click a run to edit it.">Hypothesis</div>
-            <div role="columnheader" title="This metric at the end of each run, and how it moved during the run.">${esc(s.headerMetric)}</div>
-            <div role="columnheader" title="What the run showed, written after it, and whether to keep building on it or drop it (hunch note).">Conclusion</div>
-          </div>
-          ${s.rows.map((row) => rowHtml(row, graphPx)).join("")}
-        </div>
-        ${s.rows.length ? "" : `<div class="empty">${s.empty.map((line, i) => `<div class="${i ? "" : "empty-title"}">${esc(line)}</div>`).join("")}</div>`}
-        ${quickRunsHtml(s.quickRuns)}
+  tablePane.innerHTML = `
+    <div id="grid" class="grid" role="grid" aria-label="Runs" aria-multiselectable="true" tabindex="0">
+      <div class="row header" role="row">
+        <div role="columnheader"></div>
+        <div role="columnheader" title="The end of the run's id. Use it with hunch show and hunch diff.">Run</div>
+        <div role="columnheader" class="started">Started</div>
+        <div role="columnheader" title="Why you ran it, written before the run (hunch run -m). Right-click a run to edit it.">Hypothesis</div>
+        <div role="columnheader" title="This metric at the end of each run, and how it moved during the run.">${esc(s.headerMetric)}</div>
+        <div role="columnheader" title="What the run showed, written after it, and whether to keep building on it or drop it (hunch note).">Conclusion</div>
       </div>
-      <div class="details-pane">${detailsHtml(s)}</div>
-    </div>`;
+      ${s.rows.map((row) => rowHtml(row, graphPx)).join("")}
+    </div>
+    ${s.rows.length ? "" : `<div class="empty">${s.empty.map((line, i) => `<div class="${i ? "" : "empty-title"}">${esc(line)}</div>`).join("")}</div>`}
+    ${quickRunsHtml(s.quickRuns)}`;
+  detailsPane.innerHTML = detailsHtml(s);
   // Set from script: the webview's security policy blocks inline style attributes.
   const grid = document.getElementById("grid")!;
   grid.style.setProperty("--graph", `${graphPx}px`);
@@ -135,6 +146,22 @@ function detailsHtml(s: ScreenView): string {
       <div class="fields">${rows}</div>
     </div>`;
 }
+
+// Search: every keystroke asks for the matching runs. Escape clears it, Down moves to the first match.
+
+searchBox.addEventListener("input", () => vscode.postMessage({ type: "search", text: searchBox.value }));
+
+searchBox.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && searchBox.value) {
+    event.preventDefault();
+    searchBox.value = "";
+    vscode.postMessage({ type: "search", text: "" });
+  } else if (event.key === "ArrowDown" && screen?.rows.length) {
+    event.preventDefault();
+    document.getElementById("grid")?.focus();
+    select([screen.rows[0].id]);
+  }
+});
 
 // Selection and actions.
 
