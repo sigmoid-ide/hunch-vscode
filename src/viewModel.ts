@@ -5,7 +5,7 @@ import { rows as layout, visible, width as rowWidth, type Row } from "./model/gr
 import { asArray, asObject, asString } from "./model/json.ts";
 import type { Run } from "./model/run.ts";
 import { runsIn, type Scope } from "./model/scope.ts";
-import { matches, searchWords } from "./model/search.ts";
+import { FILTER_HELP, search } from "./model/search.ts";
 import { files } from "./model/snapshot.ts";
 import { readJson, type Milestone, type Store } from "./model/store.ts";
 
@@ -62,16 +62,16 @@ export interface Inputs {
   loaded: boolean;
   showAll: boolean;
   selection: string[];
-  /** Words to find in a run; a search looks through all runs, whatever the scope. */
+  /** Words and filters to find runs by; a search looks through all runs, whatever the scope. */
   search?: string;
   now?: number;
 }
 
 export function screen(input: Inputs): ScreenView {
   const now = input.now ?? Date.now();
-  const words = searchWords(input.search ?? "");
-  const inScope = words.length
-    ? input.runs.filter((run) => matches(run, words, input.store.root))
+  const searching = (input.search ?? "").trim() !== "";
+  const inScope = searching
+    ? search(input.runs, input.search!, input.store.root, now)
     : runsIn(input.scope, input.runs, input.milestones);
   const shown = visible(inScope, input.showAll);
   const laid = layout(shown);
@@ -84,7 +84,7 @@ export function screen(input: Inputs): ScreenView {
   let details: DetailsView | null = null;
   const byId = new Map(input.runs.map((run) => [run.id, run]));
   if (selection.length === 1) details = runDetails(byId.get(selection[0])!, byId, short, input.store, headerMetric);
-  else if (selection.length === 0 && input.scope.kind === "milestone" && !words.length) details = milestoneDetails(input.scope.milestone, input.scope.number, byId, short, input.store);
+  else if (selection.length === 0 && input.scope.kind === "milestone" && !searching) details = milestoneDetails(input.scope.milestone, input.scope.number, byId, short, input.store);
 
   return {
     loaded: input.loaded,
@@ -92,7 +92,7 @@ export function screen(input: Inputs): ScreenView {
     graphWidth: Math.max(1, ...laid.map(rowWidth)),
     rows: laid.map((row) => rowView(row, short, input.mainMetric, headerMetric, now)),
     selection,
-    empty: emptyText(input, inScope, shown, words),
+    empty: emptyText(input, inScope, shown, searching),
     quickRuns: { count: input.showAll ? quick : inScope.length - shown.length, showing: input.showAll && quick > 0 },
     details,
     message: selection.length > 1 ? `${selection.length} runs selected. Compare two of them with the Compare button.` : null,
@@ -126,14 +126,14 @@ function rowView(row: Row, short: Map<string, string>, setting: string | undefin
   };
 }
 
-function emptyText(input: Inputs, inScope: Run[], shown: Run[], words: string[]): string[] {
+function emptyText(input: Inputs, inScope: Run[], shown: Run[], searching: boolean): string[] {
   if (!input.loaded) return ["Loading runs..."];
   if (!input.runs.length) {
     return ["No runs yet", "Record one with: hunch run -m \"your hypothesis\" -- python train.py", "or add hunch.init() to your training script."];
   }
   if (shown.length) return [];
-  if (words.length && !inScope.length) {
-    return [`No runs match "${input.search!.trim()}"`, "Search looks at hypotheses, conclusions, commands, config and run ids."];
+  if (searching && !inScope.length) {
+    return [`No runs match "${input.search!.trim()}"`, "Search looks at hypotheses, conclusions, commands, config and run ids.", FILTER_HELP];
   }
   if (!inScope.length && input.scope.kind === "latest") return [`No runs since M${input.milestones.length}`, "Your next runs will appear here."];
   if (!inScope.length) return ["This milestone covers no runs"];

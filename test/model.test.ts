@@ -11,7 +11,7 @@ import { rows, visible } from "../src/model/graph.ts";
 import { parse, write } from "../src/model/json.ts";
 import { Run } from "../src/model/run.ts";
 import { LATEST, runsIn, scopes } from "../src/model/scope.ts";
-import { matches, searchWords } from "../src/model/search.ts";
+import { hasFilter, search, withFilter } from "../src/model/search.ts";
 import { changes } from "../src/model/snapshot.ts";
 import { Store, timestamp } from "../src/model/store.ts";
 import { screen } from "../src/viewModel.ts";
@@ -158,14 +158,13 @@ test("a run Ferry copies from another machine stays running while this computer 
 });
 
 test("search finds runs by hypothesis, conclusion, verdict, status, command, config and id, every word", () => {
-  const found = (query: string) => runs.filter((r) => matches(r, searchWords(query), root)).map((r) => r.why);
-  assert.deepEqual(searchWords("  Higher   LR "), ["higher", "lr"]);
-  assert.deepEqual(found("HIGHER"), ["higher lr"]);
+  const found = (query: string) => search(runs, query, root).map((r) => r.why);
+  assert.deepEqual(found("  HIGHER   "), ["higher lr"]);
   assert.deepEqual(found("приятно"), ["warmup"]); // its conclusion
   assert.deepEqual(found("keep"), ["warmup"]);
   assert.deepEqual(found("crashed"), ["typo"]);
   assert.deepEqual(found("train.py fail"), ["typo"]); // its command
-  assert.deepEqual(found("lr = 0.3"), ["higher lr"]); // its config
+  assert.deepEqual(found("lr = 0.3"), ["higher lr"]); // its config, as the details show it
   assert.deepEqual(found(run("baseline").id.slice(-4)), ["baseline"]);
   assert.deepEqual(found("warmup baseline"), []);
 });
@@ -178,4 +177,43 @@ test("a search looks through every run, not only the chosen milestone's", () => 
   assert.deepEqual(none.rows, []);
   assert.equal(none.empty[0], 'No runs match "no such run"');
   assert.equal(none.search, "  no such run ");
+});
+
+test("filters narrow a search by status, verdict, time, lineage, metrics and config", () => {
+  const started = Date.parse(run("baseline").startedAt);
+  const found = (query: string, now = started + 3600_000) => search(runs, query, root, now).map((r) => r.why);
+  const all = ["baseline", "warmup", "typo", "higher lr"];
+  assert.deepEqual(found("is:kept"), ["warmup"]);
+  assert.deepEqual(found("-is:kept"), ["baseline", "typo", "higher lr"]);
+  assert.deepEqual(found("is:unreviewed"), ["baseline", "higher lr"]); // a quick crash is nothing to review
+  assert.deepEqual(found("is:crashed,stopped"), ["typo"]);
+  assert.deepEqual(found("IS:Finished -is:kept"), ["baseline", "higher lr"]);
+  assert.deepEqual(found("val_loss<0.35"), ["warmup", "typo"]);
+  assert.deepEqual(found("val_loss>=0.4"), ["baseline", "higher lr"]);
+  assert.deepEqual(found("val_loss=0.4"), ["baseline"]); // as the table shows it: 0.4000000000000001 is 0.4
+  assert.deepEqual(found("lr=3e-1"), ["higher lr"]); // config, in any notation
+  assert.deepEqual(found("LR<0.2 is:finished"), ["baseline", "warmup"]);
+  assert.deepEqual(found(`from:${run("warmup").id.slice(-4)}`), ["warmup", "typo", "higher lr"]);
+  assert.deepEqual(found("since:1d"), all);
+  assert.deepEqual(found("since:1d", started + 3 * 24 * 3600_000), []);
+  assert.deepEqual(found("since:2026-11-04"), all);
+  assert.deepEqual(found("since:2026-11-07"), []);
+  assert.deepEqual(found("since:soon"), []); // not a filter, so a word no run has
+  assert.deepEqual(found("nosuch<1"), []);
+
+  assert.equal(withFilter("warmup  is:kept", "is:kept", false), "warmup");
+  assert.equal(withFilter("warmup", "since:7d", true), "warmup since:7d");
+  assert.ok(hasFilter("warmup since:7d", "since:7d") && !hasFilter("warmup", "since:7d"));
+});
+
+test("filters for where a run ran and the branch it started on", () => {
+  const copy = copyStore();
+  const dirOf = (why: string) => copy.runs().find((r) => r.why === why)!.dir;
+  fs.writeFileSync(path.join(dirOf("higher lr"), "remote.json"), JSON.stringify({ machine: "gpu-box" }));
+  const meta = JSON.parse(fs.readFileSync(path.join(dirOf("baseline"), "run.json"), "utf8"));
+  fs.writeFileSync(path.join(dirOf("baseline"), "run.json"), JSON.stringify({ ...meta, line: "feature/warmup" }));
+  const found = (query: string) => search(copy.runs(), query, copy.root).map((r) => r.why);
+  assert.deepEqual(found("is:remote"), ["higher lr"]);
+  assert.deepEqual(found("on:GPU"), ["higher lr"]);
+  assert.deepEqual(found("branch:feature"), ["baseline"]);
 });

@@ -19,7 +19,8 @@ how it went, and what it showed.
 ![The Hunch panel: milestones, the tree of runs with their metric curves and conclusions, and one run's details](docs/screenshot.png)
 
 - **The tree of runs**, with each run's hypothesis, main metric and its curve, and your conclusion. It updates while runs train.
-- **Search** all your runs by hypothesis, conclusion, command, config or run id.
+- **Search and filter** all your runs: by hypothesis, conclusion, command, config or run id, or with filters
+  such as `is:unreviewed`, `since:7d` or `val_loss<0.3`.
 - **Run with Hunch**: in the Run button's menu, runs the current Python file under Hunch, asking why first.
 - **Keep or drop** a run and write its conclusion, from its details or a right-click.
 - **Compare** a run with the one it came from, or any two runs: config, metrics and every changed file.
@@ -37,6 +38,25 @@ Works in VS Code 1.85 or newer, Cursor, Windsurf and VSCodium, and over Remote S
    The status bar shows how many runs you have, or how many are training; click it to see them.
 3. Run a script with **Run Python File with Hunch** from the Run button's menu, or from a terminal:
    `hunch run -m "why" -- python train.py`.
+
+## Search and filters
+
+Type words to find runs by hypothesis, conclusion, command, config or run id. Add filters to narrow it down,
+or pick common ones from the filter button in the Runs view's title bar:
+
+| Filter | Finds |
+|---|---|
+| `is:unreviewed` | ended runs with no verdict or conclusion yet |
+| `is:kept`, `is:dropped` | runs by verdict |
+| `is:running`, `is:crashed`, `is:stopped`, `is:lost` | runs by how they ended, or that they have not |
+| `is:remote`, `on:gpu-box` | runs on another machine (with [Ferry](https://github.com/sigmoid-ide/ferry)), or a named one |
+| `since:7d`, `since:today`, `since:2026-11-01` | runs started since then |
+| `from:a7f3` | that run and every run that came from it |
+| `branch:main` | runs started on a git branch |
+| `val_loss<0.3`, `lr=3e-4`, `optimizer=adam` | a final metric or config value (`<`, `<=`, `>`, `>=`, `=`) |
+
+A run must match every word and filter. `-` turns one around (`-is:dropped`), and commas mean either
+(`is:crashed,stopped`).
 
 ## Settings
 

@@ -123,6 +123,12 @@
         "icon": "$(filter-filled)"
       },
       {
+        "command": "hunch.filter",
+        "title": "Filter Runs...",
+        "icon": "$(filter)",
+        "category": "Hunch"
+      },
+      {
         "command": "hunch.keep",
         "title": "Keep",
         "category": "Hunch"
@@ -177,13 +183,8 @@
           "group": "navigation@3"
         },
         {
-          "command": "hunch.showQuickRuns",
-          "when": "view == hunch.runs && !hunch.showingQuickRuns",
-          "group": "navigation@4"
-        },
-        {
-          "command": "hunch.hideQuickRuns",
-          "when": "view == hunch.runs && hunch.showingQuickRuns",
+          "command": "hunch.filter",
+          "when": "view == hunch.runs",
           "group": "navigation@4"
         }
       ],

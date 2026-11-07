@@ -4,7 +4,7 @@ import { compareRuns } from "./compare.ts";
 import { shortIds } from "./model/format.ts";
 import type { Run } from "./model/run.ts";
 import { ALL, runsIn } from "./model/scope.ts";
-import { matches, searchWords } from "./model/search.ts";
+import { FILTER_MENU, hasFilter, search, withFilter } from "./model/search.ts";
 import { hasHunch, hunch, installInTerminal, interpreter, runInTerminal } from "./python.ts";
 import type { HunchState } from "./state.ts";
 
@@ -47,8 +47,7 @@ export function registerCommands(state: HunchState): vscode.Disposable[] {
     vscode.commands.registerCommand("hunch.select", (runId: string) => {
       state.ensureLoaded();
       // A run the search leaves out (such as a parent) ends the search, so it shows.
-      const words = searchWords(state.search);
-      if (words.length && !state.runs.some((run) => run.id === runId && matches(run, words, state.store.root))) state.setSearch("");
+      if (state.search.trim() && !search(state.runs, state.search, state.store.root).some((run) => run.id === runId)) state.setSearch("");
       // A run outside the current milestone is shown among all runs.
       if (!runsIn(state.scope, state.runs, state.milestones).some((run) => run.id === runId)) state.setScope(ALL);
       state.setSelection([runId]);
@@ -68,6 +67,28 @@ export function registerCommands(state: HunchState): vscode.Disposable[] {
 
     vscode.commands.registerCommand("hunch.showQuickRuns", () => state.setShowAll(true)),
     vscode.commands.registerCommand("hunch.hideQuickRuns", () => state.setShowAll(false)),
+
+    // The common filters, ticked in the search box's text so it stays the one place that says what is shown.
+    vscode.commands.registerCommand("hunch.filter", async () => {
+      type Item = vscode.QuickPickItem & { filter?: string; quick?: boolean };
+      const items: Item[] = [
+        ...FILTER_MENU.map((m) => ({
+          label: m.label, description: m.filter, detail: "detail" in m ? m.detail : undefined, picked: hasFilter(state.search, m.filter), filter: m.filter,
+        })),
+        { label: "", kind: vscode.QuickPickItemKind.Separator },
+        { label: "Quick crashes", description: "runs that stopped or crashed in under 30 seconds", picked: state.showAll, quick: true },
+      ];
+      const chosen = await vscode.window.showQuickPick(items, {
+        canPickMany: true,
+        title: "Filter Runs",
+        placeHolder: "Filters go in the search box above the runs, where you can also type others, such as val_loss<0.3",
+      });
+      if (!chosen) return;
+      let query = state.search;
+      for (const m of FILTER_MENU) query = withFilter(query, m.filter, chosen.some((item) => item.filter === m.filter));
+      state.setShowAll(chosen.some((item) => item.quick));
+      state.setSearch(query);
+    }),
 
     /** Two runs: compare them, older first. One: compare it with the run it came from. */
     vscode.commands.registerCommand("hunch.compare", async (context: RunContext) => {

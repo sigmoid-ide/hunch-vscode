@@ -18,7 +18,7 @@ const app = document.getElementById("app")!;
 app.innerHTML = `
   <div class="layout">
     <div class="table-pane">
-      <div class="search"><input id="search" type="text" placeholder="Search all runs" aria-label="Search all runs" spellcheck="false"></div>
+      <div class="search"><input id="search" type="text" placeholder="Search all runs, or filter: is:kept since:7d val_loss<0.3" aria-label="Search all runs" spellcheck="false"></div>
       <div id="table" class="table"></div>
     </div>
     <div id="details" class="details-pane"></div>
