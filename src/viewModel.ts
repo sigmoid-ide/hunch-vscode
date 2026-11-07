@@ -35,7 +35,8 @@ export interface DetailsView {
   dimTitle: boolean;
   subtitle: string;
   rows: { label: string; value: DetailValue }[];
-  actions: { label: string; command: string; args: unknown[] }[];
+  /** `key`: the key that does the same in the table, shown on hover. */
+  actions: { label: string; command: string; args: unknown[]; key?: string }[];
 }
 
 export interface ScreenView {
@@ -183,11 +184,11 @@ function runDetails(run: Run, byId: Map<string, Run>, short: Map<string, string>
   rows.push({ label: "Folder", value: { link: path.relative(store.root, run.dir), ...reveal(run.dir) } });
 
   const actions: DetailsView["actions"] = [
-    { label: "Keep", command: "hunch.keep", args: [{ runId: run.id }] },
-    { label: "Drop", command: "hunch.drop", args: [{ runId: run.id }] },
-    { label: "Write Conclusion...", command: "hunch.writeConclusion", args: [{ runId: run.id }] },
+    { label: "Keep", command: "hunch.keep", args: [{ runId: run.id }], key: "K" },
+    { label: "Drop", command: "hunch.drop", args: [{ runId: run.id }], key: "D" },
+    { label: "Write Conclusion...", command: "hunch.writeConclusion", args: [{ runId: run.id }], key: "C" },
   ];
-  if (run.parent && byId.has(run.parent)) actions.push({ label: "Compare with Parent", command: "hunch.compare", args: [{ runId: run.id }] });
+  if (run.parent && byId.has(run.parent)) actions.push({ label: "Compare with Parent", command: "hunch.compare", args: [{ runId: run.id }], key: "Enter" });
   return {
     title: run.why ?? "No hypothesis",
     dimTitle: !run.why,

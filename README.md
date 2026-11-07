@@ -58,6 +58,23 @@ or pick common ones from the filter button in the Runs view's title bar:
 A run must match every word and filter. `-` turns one around (`-is:dropped`), and commas mean either
 (`is:crashed,stopped`).
 
+## Keyboard
+
+Ctrl+Alt+H in a Python file runs it with Hunch, asking why first.
+
+In the runs table:
+
+| Key | Does |
+|---|---|
+| Up, Down, Home, End | move between runs; with Shift, select several |
+| Enter | compare the run with the one it came from, or the two selected runs |
+| K, D | keep or drop the selected runs |
+| C | write a conclusion |
+| F2 | edit the hypothesis |
+| Ctrl+F (Cmd+F on macOS) or / | go to the search box; Down comes back to the table, Escape clears it |
+
+Everything else is in the Command Palette, under Hunch.
+
 ## Settings
 
 `hunch.interpreter`: the Python that has Hunch. When empty, the extension uses the interpreter selected in the

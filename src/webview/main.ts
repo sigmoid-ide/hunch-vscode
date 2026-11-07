@@ -12,6 +12,8 @@ const CURVE_WIDTH = 64;
 let screen: ScreenView | undefined;
 let selection: string[] = [];
 let anchor: string | undefined;
+/** The row the keyboard is on; with Shift, the selection runs from the anchor to it. */
+let cursor: string | undefined;
 const app = document.getElementById("app")!;
 
 // Drawn once: redrawing the search box would lose what is being typed.
@@ -136,7 +138,7 @@ function detailsHtml(s: ScreenView): string {
     return `<div class="label">${esc(row.label)}</div>${value}`;
   }).join("");
   const actions = d.actions.length
-    ? `<div class="actions">${d.actions.map((a, i) => `<button class="${i ? "secondary" : ""}" data-command="${esc(a.command)}" data-args="${esc(JSON.stringify(a.args))}">${esc(a.label)}</button>`).join("")}</div>`
+    ? `<div class="actions">${d.actions.map((a, i) => `<button class="${i ? "secondary" : ""}"${a.key ? ` title="Key in the table: ${esc(a.key)}"` : ""} data-command="${esc(a.command)}" data-args="${esc(JSON.stringify(a.args))}">${esc(a.label)}</button>`).join("")}</div>`
     : "";
   return `
     <div class="details">
@@ -181,6 +183,7 @@ app.addEventListener("click", (event) => {
   const row = target.closest<HTMLElement>(".row[data-id]");
   if (!row) return;
   const id = row.dataset.id!;
+  cursor = id;
   if (event.shiftKey && anchor) {
     const ids = screen!.rows.map((r) => r.id);
     const [a, b] = [ids.indexOf(anchor), ids.indexOf(id)].sort((x, y) => x - y);
@@ -203,10 +206,20 @@ app.addEventListener("contextmenu", (event) => {
   if (row && !selection.includes(row.dataset.id!)) select([row.dataset.id!]);
 });
 
+/** Keys that act on the selected runs, as their right-click menu does. F2 renames, as elsewhere in VS Code. */
+const RUN_KEYS: Record<string, string> = { k: "hunch.keep", d: "hunch.drop", c: "hunch.writeConclusion", F2: "hunch.editHypothesis" };
+
 app.addEventListener("keydown", (event) => {
   if ((event.target as HTMLElement).id !== "grid" || !screen?.rows.length) return;
   const ids = screen.rows.map((r) => r.id);
-  const current = selection.length ? ids.indexOf(selection[selection.length - 1]) : -1;
+  const command = event.ctrlKey || event.metaKey || event.altKey ? undefined : RUN_KEYS[event.key.length === 1 ? event.key.toLowerCase() : event.key];
+  if (command && selection.length) {
+    event.preventDefault();
+    vscode.postMessage({ type: "command", command, args: [{ runId: selection[0] }] });
+    return;
+  }
+  const at = cursor && ids.includes(cursor) ? cursor : selection[selection.length - 1];
+  const current = at ? ids.indexOf(at) : -1;
   let next = current;
   if (event.key === "ArrowDown") next = Math.min(ids.length - 1, current + 1);
   else if (event.key === "ArrowUp") next = Math.max(0, current - 1);
@@ -217,8 +230,25 @@ app.addEventListener("keydown", (event) => {
     return;
   } else return;
   event.preventDefault();
-  select([ids[next]]);
+  if (event.shiftKey && anchor && ids.includes(anchor)) {
+    const [a, b] = [ids.indexOf(anchor), next].sort((x, y) => x - y);
+    select(ids.slice(a, b + 1), false); // Shift extends the selection, as Shift+click does
+  } else {
+    select([ids[next]]);
+  }
+  cursor = ids[next];
   document.querySelector(`.row[data-id="${CSS.escape(ids[next])}"]`)?.scrollIntoView({ block: "nearest" });
+});
+
+// Ctrl+F, or / outside the search box, goes to the search box from anywhere in the view.
+document.addEventListener("keydown", (event) => {
+  const modified = event.ctrlKey || event.metaKey;
+  const find = modified && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "f";
+  const slash = event.key === "/" && !modified && !event.altKey && event.target !== searchBox;
+  if (!find && !slash) return;
+  event.preventDefault();
+  searchBox.focus();
+  searchBox.select();
 });
 
 function select(ids: string[], moveAnchor = true): void {

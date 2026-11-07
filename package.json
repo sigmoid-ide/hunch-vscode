@@ -160,6 +160,13 @@
         "icon": "$(beaker)"
       }
     ],
+    "keybindings": [
+      {
+        "command": "hunch.runFile",
+        "key": "ctrl+alt+h",
+        "when": "editorLangId == python"
+      }
+    ],
     "menus": {
       "view/title": [
         {
