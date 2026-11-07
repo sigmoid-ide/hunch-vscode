@@ -138,3 +138,19 @@ test("ids, times, durations and commands read short", () => {
   const fake = new Run(path.join(project, "run"), "run", meta, undefined, [], undefined, []);
   assert.equal(command(fake, project), "python train.py --lr 3e-4");
 });
+
+test("a run Ferry copies from another machine stays running while this computer sleeps", () => {
+  const copy = copyStore();
+  const folder = copy.runs().find((r) => r.why === "higher lr")!.dir;
+  fs.rmSync(path.join(folder, "end.json"));
+  const old = new Date(Date.now() - 3 * 3600_000);
+  fs.writeFileSync(path.join(folder, "heartbeat"), "");
+  fs.utimesSync(path.join(folder, "heartbeat"), old, old);
+  const reread = () => copy.runs().find((r) => r.why === "higher lr")!;
+  assert.equal(reread().status, "lost");
+  fs.writeFileSync(path.join(folder, "remote.json"), JSON.stringify({ machine: "gpu-box", dir: "/home/me/.ferry/x", synced_at: "2026-11-07T09:00:00+05:00" }));
+  const remote = reread();
+  assert.equal(remote.status, "running");
+  assert.deepEqual(remote.remote, { machine: "gpu-box", syncedAt: "2026-11-07T09:00:00+05:00" });
+  assert.match(result(remote, undefined), /^running .* on gpu-box$/);
+});

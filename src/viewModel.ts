@@ -145,6 +145,10 @@ function runDetails(run: Run, byId: Map<string, Run>, short: Map<string, string>
     if (text && text.trim()) rows.push({ label, value: { text } });
   };
   add("Status", status(run));
+  if (run.remote) {
+    const copied = run.remote.syncedAt ? fmt.started(run.remote.syncedAt) : "not yet";
+    add("Remote", `ran on ${run.remote.machine}, copied home by Ferry (last copy ${copied})`);
+  }
   add("Conclusion", [run.verdict, run.conclusion].filter(Boolean).join(": "));
   if (run.parent) {
     const parent = byId.get(run.parent);

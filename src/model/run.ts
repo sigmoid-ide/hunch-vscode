@@ -13,6 +13,13 @@ export interface MetricSummary {
   sparks: Record<string, number[]>;
 }
 
+/** Where a run that Ferry copies home from another machine ran (remote.json, which only this computer has). */
+export interface Remote {
+  machine: string;
+  /** When Ferry last copied it, as ISO 8601. */
+  syncedAt: string | undefined;
+}
+
 /**
  * One run folder, read back. Mirrors hunch's RunRecord (store.py), following the
  * on-disk format in hunch's docs/format.md.
@@ -26,9 +33,11 @@ export class Run {
   /** Seconds since the heartbeat file last changed, or undefined without one. */
   private readonly heartbeatAge: number | undefined;
   private readonly liveRows: JsonObject[];
+  readonly remote: Remote | undefined;
   private summaryCache: MetricSummary | undefined;
 
-  constructor(dir: string, id: string, meta: JsonObject, end: JsonObject | undefined, notes: JsonObject[], heartbeatAge: number | undefined, liveRows: JsonObject[]) {
+  constructor(dir: string, id: string, meta: JsonObject, end: JsonObject | undefined, notes: JsonObject[], heartbeatAge: number | undefined, liveRows: JsonObject[],
+    remote?: Remote) {
     this.dir = dir;
     this.id = id;
     this.meta = meta;
@@ -36,6 +45,7 @@ export class Run {
     this.notes = notes;
     this.heartbeatAge = heartbeatAge;
     this.liveRows = liveRows;
+    this.remote = remote;
   }
 
   /** The start time as written, for sorting. */
@@ -50,6 +60,8 @@ export class Run {
   get status(): Status {
     const recorded = asString(this.end?.status);
     if (recorded) return recorded;
+    // Ferry is copying it from another machine: this computer may have slept, so its heartbeat says nothing about the run there.
+    if (this.remote) return "running";
     return (this.heartbeatAge ?? Infinity) < LOST_AFTER_SECONDS ? "running" : "lost";
   }
 

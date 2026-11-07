@@ -83,7 +83,7 @@ export function result(run: Run, key: string | undefined, now = Date.now()): str
     case "finished": return metric;
     case "crashed": return run.exitCode !== undefined ? `crashed, exit ${run.exitCode}` : "crashed";
     case "killed": return "stopped";
-    case "running": return `running ${duration((now - run.startedMs) / 1000)}`;
+    case "running": return `running ${duration((now - run.startedMs) / 1000)}${run.remote ? ` on ${run.remote.machine}` : ""}`;
     default: return run.status;
   }
 }

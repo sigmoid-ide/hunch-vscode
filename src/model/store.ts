@@ -146,7 +146,11 @@ function loadRun(folder: string, now: number): Run | undefined {
     heartbeatAge = undefined;
   }
   const liveRows = end ? [] : readJsonLines(path.join(folder, "metrics.jsonl"));
-  return new Run(folder, path.basename(folder), meta, end, readJsonLines(path.join(folder, "notes.jsonl")), heartbeatAge, liveRows);
+  const remoteValue = readJson(path.join(folder, "remote.json"));
+  const remote = remoteValue && typeof remoteValue === "object" && !Array.isArray(remoteValue)
+    ? { machine: asString(remoteValue.machine) ?? "another machine", syncedAt: asString(remoteValue.synced_at) }
+    : undefined;
+  return new Run(folder, path.basename(folder), meta, end, readJsonLines(path.join(folder, "notes.jsonl")), heartbeatAge, liveRows, remote);
 }
 
 export function readJson(file: string): Json | undefined {
