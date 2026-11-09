@@ -6,7 +6,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { command, duration, result, shortIds, started, value } from "../src/model/format.ts";
+import { command, cost, duration, machine, result, shortIds, started, value } from "../src/model/format.ts";
 import { rows, visible } from "../src/model/graph.ts";
 import { parse, write } from "../src/model/json.ts";
 import { Run } from "../src/model/run.ts";
@@ -154,8 +154,41 @@ test("a run Ferry copies from another machine stays running while this computer 
   fs.writeFileSync(path.join(folder, "remote.json"), JSON.stringify({ machine: "gpu-box", dir: "/home/me/.ferry/x", synced_at: "2026-11-07T09:00:00+05:00" }));
   const remote = reread();
   assert.equal(remote.status, "running");
-  assert.deepEqual(remote.remote, { machine: "gpu-box", syncedAt: "2026-11-07T09:00:00+05:00" });
+  assert.deepEqual(remote.remote, { machine: "gpu-box", syncedAt: "2026-11-07T09:00:00+05:00", provider: undefined, country: undefined });
   assert.match(result(remote, undefined), /^running .* on gpu-box$/);
+});
+
+test("a run on a rented machine shows where it ran and what it cost", () => {
+  const copy = copyStore();
+  const folder = copy.runs().find((r) => r.why === "higher lr")!.dir;
+  const details = () => {
+    const all = copy.runs();
+    const input = { store: copy, runs: all, milestones: copy.milestones(), scope: LATEST, mainMetric: undefined, loaded: true, showAll: false, selection: [all.find((r) => r.why === "higher lr")!.id] };
+    return Object.fromEntries(screen(input).details!.rows.map((row) => [row.label, "text" in row.value ? row.value.text : row.value.link]));
+  };
+  const before = details();
+  assert.equal(before.Cost, undefined);
+  fs.writeFileSync(path.join(folder, "cost.json"), '{"estimate": 0.0');
+  assert.deepEqual(details(), before); // a broken cost.json is no cost
+
+  const signature = copy.signature(0);
+  fs.writeFileSync(path.join(folder, "remote.json"), JSON.stringify({ machine: "vast-59870289", dir: "/root/.ferry/x", synced_at: "2026-11-09T14:03:00+05:00", complete: true,
+    provider: "vast", tier: "verified", country: "PL", price: 0.0674 }));
+  fs.writeFileSync(path.join(folder, "cost.json"), JSON.stringify({ provider: "vast", machine: "vast-59870289", gpu: "NVIDIA GeForce RTX 3060", rate: 0.06740740740740742,
+    disk_rate: 0.007407, running_seconds: 48, stopped_seconds: 0, estimate: 0.0009, currency: "USD", billed: null }));
+  assert.notEqual(copy.signature(0), signature);
+  assert.deepEqual(copy.runs().find((r) => r.why === "higher lr")!.cost, { dollars: 0.0009, billed: false });
+  const rented = details();
+  assert.equal(rented.Remote, "ran on vast-59870289 (Vast.ai, PL), copied home by Ferry (last copy Nov 9 14:03)");
+  assert.equal(rented.Cost, "under a cent");
+  assert.equal(rented.Status, before.Status);
+
+  fs.writeFileSync(path.join(folder, "cost.json"), JSON.stringify({ estimate: 0.0213, billed: 0.0241 }));
+  assert.equal(details().Cost, "$0.02");
+  assert.deepEqual([{ dollars: 0.0213, billed: false }, { dollars: 1.237, billed: false }, { dollars: 0.0213, billed: true }, { dollars: 0.004, billed: true }].map(cost),
+    ["about $0.02", "about $1.24", "$0.02", "under a cent"]);
+  assert.equal(machine({ machine: "gpu-box", syncedAt: undefined, provider: undefined, country: undefined }), "gpu-box");
+  assert.equal(machine({ machine: "box", syncedAt: undefined, provider: "other", country: "" }), "box (other)");
 });
 
 test("search finds runs by hypothesis, conclusion, verdict, status, command, config and id, every word", () => {

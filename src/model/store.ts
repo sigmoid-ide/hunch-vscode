@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { asArray, asObject, asString, parse, write, type Json, type JsonObject } from "./json.ts";
+import { asArray, asNumber, asObject, asString, parse, write, type Json, type JsonObject } from "./json.ts";
 import { Run } from "./run.ts";
 
 /** A milestone folder, read back. See "Milestones" in hunch's docs/format.md. */
@@ -109,7 +109,7 @@ export class Store {
   }
 
   /**
-   * Changes whenever a run starts, ends, gets a note, logs a metric, or a milestone is saved.
+   * Changes whenever a run starts, ends, gets a note, logs a metric, gets its cost, or a milestone is saved.
    * Cheap: directory listings and a few file sizes per run. Includes the minute, because
    * whether a run without an end is still running depends on the clock.
    */
@@ -117,7 +117,7 @@ export class Store {
     const parts: string[] = [];
     for (const folder of listDirectories(this.runsDir)) {
       parts.push(path.basename(folder));
-      for (const name of ["run.json", "end.json", "notes.jsonl", "metrics.jsonl"]) parts.push(String(fileSize(path.join(folder, name))));
+      for (const name of ["run.json", "end.json", "notes.jsonl", "metrics.jsonl", "cost.json"]) parts.push(String(fileSize(path.join(folder, name))));
     }
     for (const folder of listDirectories(this.milestonesDir)) {
       if (fs.existsSync(path.join(folder, "milestone.json"))) parts.push(path.basename(folder));
@@ -148,9 +148,14 @@ function loadRun(folder: string, now: number): Run | undefined {
   const liveRows = end ? [] : readJsonLines(path.join(folder, "metrics.jsonl"));
   const remoteValue = readJson(path.join(folder, "remote.json"));
   const remote = remoteValue && typeof remoteValue === "object" && !Array.isArray(remoteValue)
-    ? { machine: asString(remoteValue.machine) ?? "another machine", syncedAt: asString(remoteValue.synced_at) }
+    ? { machine: asString(remoteValue.machine) ?? "another machine", syncedAt: asString(remoteValue.synced_at),
+      provider: asString(remoteValue.provider), country: asString(remoteValue.country) }
     : undefined;
-  return new Run(folder, path.basename(folder), meta, end, readJsonLines(path.join(folder, "notes.jsonl")), heartbeatAge, liveRows, remote);
+  const costValue = asObject(readJson(path.join(folder, "cost.json")));
+  const billed = asNumber(costValue.billed);
+  const dollars = billed ?? asNumber(costValue.estimate);
+  const cost = dollars !== undefined && Number.isFinite(dollars) ? { dollars, billed: billed !== undefined } : undefined;
+  return new Run(folder, path.basename(folder), meta, end, readJsonLines(path.join(folder, "notes.jsonl")), heartbeatAge, liveRows, remote, cost);
 }
 
 export function readJson(file: string): Json | undefined {

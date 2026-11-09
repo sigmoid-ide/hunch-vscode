@@ -18,6 +18,16 @@ export interface Remote {
   machine: string;
   /** When Ferry last copied it, as ISO 8601. */
   syncedAt: string | undefined;
+  /** On a machine Ferry rented: who from, such as "vast", and the country it was in, such as "PL". */
+  provider: string | undefined;
+  country: string | undefined;
+}
+
+/** What a run on a rented machine cost, in US dollars (cost.json, which Ferry writes once the run is home). */
+export interface Cost {
+  dollars: number;
+  /** The provider's own charge, rather than Ferry's estimate. */
+  billed: boolean;
 }
 
 /**
@@ -34,10 +44,11 @@ export class Run {
   private readonly heartbeatAge: number | undefined;
   private readonly liveRows: JsonObject[];
   readonly remote: Remote | undefined;
+  readonly cost: Cost | undefined;
   private summaryCache: MetricSummary | undefined;
 
   constructor(dir: string, id: string, meta: JsonObject, end: JsonObject | undefined, notes: JsonObject[], heartbeatAge: number | undefined, liveRows: JsonObject[],
-    remote?: Remote) {
+    remote?: Remote, cost?: Cost) {
     this.dir = dir;
     this.id = id;
     this.meta = meta;
@@ -46,6 +57,7 @@ export class Run {
     this.heartbeatAge = heartbeatAge;
     this.liveRows = liveRows;
     this.remote = remote;
+    this.cost = cost;
   }
 
   /** The start time as written, for sorting. */

@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import type { Run } from "./run.ts";
+import type { Cost, Remote, Run } from "./run.ts";
 
 /** Text formatting shared with the `hunch` command line, so both read the same. */
 
@@ -86,6 +86,18 @@ export function result(run: Run, key: string | undefined, now = Date.now()): str
     case "running": return `running ${duration((now - run.startedMs) / 1000)}${run.remote ? ` on ${run.remote.machine}` : ""}`;
     default: return run.status;
   }
+}
+
+/** "vast-59870289 (Vast.ai, PL)": the machine, and for a rented one who rented it out and the country it was in. */
+export function machine(remote: Remote): string {
+  const where = [remote.provider === "vast" ? "Vast.ai" : remote.provider, remote.country].filter(Boolean).join(", ");
+  return where ? `${remote.machine} (${where})` : remote.machine;
+}
+
+/** "about $0.02" for Ferry's estimate, "$0.02" once billed, and "under a cent" for less, as Ferry says it. */
+export function cost(c: Cost): string {
+  if (c.dollars < 0.01) return "under a cent";
+  return `${c.billed ? "" : "about "}$${c.dollars.toFixed(2)}`;
 }
 
 /** Nested config as dotted keys, like hunch's flatten. */
