@@ -10,6 +10,7 @@ import { command, duration, result, shortIds, started, value } from "../src/mode
 import { rows, visible } from "../src/model/graph.ts";
 import { parse, write } from "../src/model/json.ts";
 import { Run } from "../src/model/run.ts";
+import { machinesAnswer } from "../src/model/machines.ts";
 import { LATEST, runsIn, scopes } from "../src/model/scope.ts";
 import { hasFilter, search, withFilter } from "../src/model/search.ts";
 import { changes } from "../src/model/snapshot.ts";
@@ -216,4 +217,18 @@ test("filters for where a run ran and the branch it started on", () => {
   assert.deepEqual(found("is:remote"), ["higher lr"]);
   assert.deepEqual(found("on:GPU"), ["higher lr"]);
   assert.deepEqual(found("branch:feature"), ["baseline"]);
+});
+
+test("reads Ferry's machines, and tells a missing Ferry from an old one", () => {
+  const listed = machinesAnswer(true, true, '[{"name":"gpu","host":"10.0.0.5","user":"me","port":22,"gpu":"RTX 3060"},{"name":"cpu","host":"box"},{"host":"x"}]', "");
+  assert.deepEqual(listed, { kind: "machines", machines: [
+    { name: "gpu", host: "10.0.0.5", user: "me", gpu: "RTX 3060" },
+    { name: "cpu", host: "box", user: undefined, gpu: undefined },
+  ] });
+  assert.deepEqual(machinesAnswer(true, true, "[]", ""), { kind: "machines", machines: [] });
+  assert.deepEqual(machinesAnswer(false, false, "", ""), { kind: "no-python" });
+  assert.deepEqual(machinesAnswer(true, false, "", "C:\py\python.exe: No module named ferry\n"), { kind: "no-ferry" });
+  assert.deepEqual(machinesAnswer(true, false, "", "usage: ferry [-h]\nferry: error: unrecognized arguments: --json\n"), { kind: "old-ferry" });
+  assert.deepEqual(machinesAnswer(true, false, "", "Traceback...\nferry: the machines file is broken\n"), { kind: "error", message: "the machines file is broken" });
+  assert.equal(machinesAnswer(true, true, "not json", "").kind, "error");
 });

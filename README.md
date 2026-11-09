@@ -22,6 +22,8 @@ how it went, and what it showed.
 - **Search and filter** all your runs: by hypothesis, conclusion, command, config or run id, or with filters
   such as `is:unreviewed`, `since:7d` or `val_loss<0.3`.
 - **Run with Hunch**: in the Run button's menu, runs the current Python file under Hunch, asking why first.
+  **Run with Hunch on...** runs it on one of your GPU machines with [Ferry](https://github.com/sigmoid-ide/ferry)
+  (0.1.2 or newer) and brings the run home.
 - **Keep or drop** a run and write its conclusion, from its details or a right-click.
 - **Compare** a run with the one it came from, or any two runs: config, metrics and every changed file.
 - **Milestones**: browse your runs milestone by milestone, and save one when you find something worth remembering.
@@ -83,6 +85,7 @@ Python extension, then `python` on PATH.
 ## Privacy
 
 No telemetry, no network. The extension reads `.hunch/` and appends your notes to it. It runs Python only for
-Run with Hunch and Save Milestone, and only in trusted workspaces.
+Run with Hunch and Save Milestone, and only in trusted workspaces. Run with Hunch on... starts Ferry, which
+connects only to the machines you added to it.
 
 <p align="center">Apache-2.0 · Part of Sigmoid IDE · Like it? Give it a star.</p>

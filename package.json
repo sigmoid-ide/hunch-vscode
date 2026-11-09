@@ -158,6 +158,12 @@
         "title": "Run Python File with Hunch",
         "category": "Hunch",
         "icon": "$(beaker)"
+      },
+      {
+        "command": "hunch.runFileOn",
+        "title": "Run Python File with Hunch on...",
+        "category": "Hunch",
+        "icon": "$(remote)"
       }
     ],
     "keybindings": [
@@ -232,11 +238,20 @@
           "command": "hunch.runFile",
           "when": "resourceLangId == python && !isInDiffEditor",
           "group": "navigation@1"
+        },
+        {
+          "command": "hunch.runFileOn",
+          "when": "resourceLangId == python && !isInDiffEditor",
+          "group": "navigation@2"
         }
       ],
       "commandPalette": [
         {
           "command": "hunch.runFile",
+          "when": "resourceLangId == python"
+        },
+        {
+          "command": "hunch.runFileOn",
           "when": "resourceLangId == python"
         },
         {

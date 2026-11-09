@@ -59,6 +59,23 @@ const tests: [string, () => Promise<void>][] = [
     assert.deepEqual(run.metricKeys, ["val_loss"]);
   }],
 
+  ["Run with Hunch on runs the file on a Ferry machine and brings the run home", async () => {
+    const machine = process.env.HUNCH_TEST_FERRY_MACHINE;
+    if (!python() || !machine) return skip("set HUNCH_TEST_FERRY_MACHINE to a machine of Ferry 0.1.2 or newer, in HUNCH_TEST_PYTHON or on PATH");
+    const root = workspaceRoot();
+    const script = path.join(root, "remote.py");
+    fs.writeFileSync(script, 'import hunch\nhunch.init(config={"lr": 0.2})\nhunch.log({"val_loss": 0.4})\n');
+    const before = new Set(new Store(root).runs().map((run) => run.id));
+    const why = `on ${machine}: "quoted" & $HOME`;
+    await vscode.commands.executeCommand("hunch.runFileOn", vscode.Uri.file(script), { why, machine });
+    // The first run on a machine builds its environment there, which takes a few minutes.
+    const run = await waitFor("the run to come home", () => new Store(root).runs().find((r) => !before.has(r.id) && r.end), 900_000);
+    assert.equal(run.why, why);
+    assert.equal(run.status, "finished");
+    assert.equal(run.remote?.machine, machine);
+    assert.deepEqual(run.metricKeys, ["val_loss"]);
+  }],
+
   ["Save Milestone saves the title and note as typed", async () => {
     if (!python()) return skip("set HUNCH_TEST_PYTHON to a Python with Hunch 0.3 or newer");
     const root = workspaceRoot();

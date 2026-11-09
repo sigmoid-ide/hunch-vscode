@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import * as path from "node:path";
 import * as vscode from "vscode";
+import { machinesAnswer, type MachinesAnswer } from "./model/machines.ts";
 
 /** What the Python extension's API offers, as far as Hunch uses it. */
 interface PythonApi {
@@ -101,10 +102,54 @@ export function runInTerminal(python: string, file: string, cwd: string, why: st
   return terminal;
 }
 
-/** Opens a terminal that installs Hunch into the interpreter. */
-export function installInTerminal(python: string, cwd: string): void {
+/** Opens a terminal that installs Hunch, or with `ferry` Ferry (which brings Hunch along), into the interpreter. */
+export function installInTerminal(python: string, cwd: string, ferry = false): void {
   const shell = shellKind();
-  const terminal = vscode.window.createTerminal({ name: "Install Hunch", cwd });
+  const terminal = vscode.window.createTerminal({ name: ferry ? "Install Ferry" : "Install Hunch", cwd });
   terminal.show();
-  terminal.sendText(`${quote(python, shell, true)} -m pip install sigmoid-hunch`);
+  terminal.sendText(`${quote(python, shell, true)} -m pip install ${ferry ? "-U sigmoid-ferry" : "sigmoid-hunch"}`);
+}
+
+/**
+ * The machines Ferry knows (`ferry add`), and the command that starts that Ferry: the
+ * interpreter's own (`pip install sigmoid-ferry`), else a `ferry` command on PATH
+ * (`uv tool install sigmoid-ferry`).
+ */
+export async function ferryMachines(python: string, cwd: string): Promise<{ ferry: string[]; answer: MachinesAnswer }> {
+  const own = [python, "-m", "ferry"];
+  const answer = await machines(own, cwd);
+  if (answer.kind !== "no-ferry") return { ferry: own, answer };
+  const tool = await machines(["ferry"], cwd);
+  return tool.kind === "no-python" ? { ferry: own, answer } : { ferry: ["ferry"], answer: tool };
+}
+
+/** Asks one Ferry for its machines, without a shell. */
+function machines(ferry: string[], cwd: string): Promise<MachinesAnswer> {
+  return new Promise((resolve) => {
+    execFile(ferry[0], [...ferry.slice(1), "machines", "--json"], {
+      cwd,
+      env: { ...process.env, PYTHONIOENCODING: "utf-8", PYTHONUTF8: "1" },
+      timeout: 60_000,
+      windowsHide: true,
+      encoding: "utf8",
+    }, (error, stdout, stderr) => {
+      const started = (error as NodeJS.ErrnoException | null)?.code !== "ENOENT";
+      resolve(machinesAnswer(started, !error, stdout, stderr));
+    });
+  });
+}
+
+/**
+ * Starts `ferry run --on <machine>` for a file in its own terminal. The interpreter goes after
+ * `--` by its path, so Ferry builds the machine's environment from it, wherever Ferry is installed.
+ */
+export function runOnInTerminal(ferry: string[], python: string, file: string, cwd: string, machine: string, why: string): vscode.Terminal {
+  const shell = shellKind();
+  const terminal = vscode.window.createTerminal({ name: `Hunch on ${machine}: ${path.basename(file)}`, cwd, env: { HUNCH_WHY: why } });
+  const relative = path.relative(cwd, file);
+  const script = relative && !relative.startsWith("..") && !path.isAbsolute(relative) ? relative : file;
+  const start = ferry.map((part, i) => quote(part, shell, i === 0)).join(" ");
+  terminal.show();
+  terminal.sendText(`${start} run --on ${quote(machine, shell)} -- ${quote(python, shell)} ${quote(script, shell)}`);
+  return terminal;
 }

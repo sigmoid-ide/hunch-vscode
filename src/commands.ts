@@ -5,7 +5,7 @@ import { shortIds } from "./model/format.ts";
 import type { Run } from "./model/run.ts";
 import { ALL, runsIn } from "./model/scope.ts";
 import { FILTER_MENU, hasFilter, search, withFilter } from "./model/search.ts";
-import { hasHunch, hunch, installInTerminal, interpreter, runInTerminal } from "./python.ts";
+import { ferryMachines, hasHunch, hunch, installInTerminal, interpreter, runInTerminal, runOnInTerminal } from "./python.ts";
 import type { HunchState } from "./state.ts";
 
 /** A right-click in the Runs view passes its row's context; buttons pass `{ runId }` too. */
@@ -163,7 +163,53 @@ export function registerCommands(state: HunchState): vscode.Disposable[] {
       if (why === undefined) return;
       runInTerminal(python, uri.fsPath, cwd, why.trim());
     }),
+
+    /** Runs the file on one of the user's machines with Ferry; `options` as for hunch.runFile, plus the machine's name. */
+    vscode.commands.registerCommand("hunch.runFileOn", async (resource?: vscode.Uri, options?: { why?: string; machine?: string }) => {
+      const uri = resource instanceof vscode.Uri ? resource : vscode.window.activeTextEditor?.document.uri;
+      if (!uri || uri.scheme !== "file") return void vscode.window.showInformationMessage("Open a Python file to run it with Hunch.");
+      if (!(await trusted())) return;
+      const cwd = vscode.workspace.getWorkspaceFolder(uri)?.uri.fsPath ?? path.dirname(uri.fsPath);
+      const python = await interpreter(uri);
+      const { ferry, answer } = await ferryMachines(python, cwd);
+      if (answer.kind === "no-python") return void offerInstall(python, cwd, true);
+      if (answer.kind === "no-ferry") return void offerFerry(python, cwd);
+      if (answer.kind === "old-ferry") {
+        const upgrade = ferry[0] === "ferry" ? "uv tool upgrade sigmoid-ferry" : `${python} -m pip install -U sigmoid-ferry`;
+        return void vscode.window.showErrorMessage(`Running on another machine needs Ferry 0.1.2 or newer. Upgrade it with: ${upgrade}`);
+      }
+      if (answer.kind === "error") return void vscode.window.showErrorMessage(`Ferry: ${answer.message}`);
+      if (!answer.machines.length) return void noMachines();
+      const name = options?.machine ?? (await vscode.window.showQuickPick(
+        answer.machines.map((m) => ({ label: m.name, description: m.gpu ?? "no GPU", detail: m.user ? `${m.user}@${m.host}` : m.host })),
+        { title: `Run ${path.basename(uri.fsPath)} with Hunch on`, placeHolder: "One of your machines (ferry add)" },
+      ))?.label;
+      if (!name) return;
+      const why = typeof options?.why === "string" ? options.why : await vscode.window.showInputBox({
+        title: `Run ${path.basename(uri.fsPath)} with Hunch on ${name}`,
+        prompt: "Why are you running this?",
+        placeHolder: "Your hypothesis, e.g. warmup 1500 steps (optional)",
+        ignoreFocusOut: true,
+      });
+      if (why === undefined) return;
+      await vscode.workspace.saveAll(false); // Ferry sends the code as it is on disk
+      runOnInTerminal(ferry, python, uri.fsPath, cwd, name, why.trim());
+    }),
   ];
+}
+
+async function offerFerry(python: string, cwd: string): Promise<void> {
+  const command = `${python} -m pip install -U sigmoid-ferry`;
+  const choice = await vscode.window.showWarningMessage(
+    `Running on another machine needs Ferry, in ${python} or as the ferry command.`, "Install in Terminal", "Copy Command");
+  if (choice === "Install in Terminal") installInTerminal(python, cwd, true);
+  else if (choice === "Copy Command") void vscode.env.clipboard.writeText(command);
+}
+
+async function noMachines(): Promise<void> {
+  const choice = await vscode.window.showInformationMessage(
+    "Ferry has no machines yet. Add one in a terminal: ferry add mybox user@host", "How Ferry Works");
+  if (choice) void vscode.env.openExternal(vscode.Uri.parse("https://github.com/sigmoid-ide/ferry#readme"));
 }
 
 async function trusted(): Promise<boolean> {
