@@ -23,7 +23,8 @@ how it went, and what it showed.
   such as `is:unreviewed`, `since:7d` or `val_loss<0.3`.
 - **Run with Hunch**: in the Run button's menu, runs the current Python file under Hunch, asking why first.
   **Run with Hunch on...** runs it on one of your GPU machines with [Ferry](https://github.com/sigmoid-ide/ferry)
-  (0.1.2 or newer) and brings the run home.
+  (0.1.2 or newer) and brings the run home, or on a GPU you rent on Vast.ai with your own account (Ferry 0.2),
+  given back once the run is home; you see the price and the most it can cost first.
 - **Keep or drop** a run and write its conclusion, from its details or a right-click.
 - **Compare** a run with the one it came from, or any two runs: config, metrics and every changed file.
 - **Milestones**: browse your runs milestone by milestone, and save one when you find something worth remembering.

@@ -11,6 +11,7 @@ import { rows, visible } from "../src/model/graph.ts";
 import { parse, write } from "../src/model/json.ts";
 import { Run } from "../src/model/run.ts";
 import { machinesAnswer } from "../src/model/machines.ts";
+import { dollars, mostCost, offersAnswer, offerText, parseDuration, TIMES, timeCost } from "../src/model/offers.ts";
 import { LATEST, runsIn, scopes } from "../src/model/scope.ts";
 import { hasFilter, search, withFilter } from "../src/model/search.ts";
 import { changes } from "../src/model/snapshot.ts";
@@ -264,4 +265,38 @@ test("reads Ferry's machines, and tells a missing Ferry from an old one", () => 
   assert.deepEqual(machinesAnswer(true, false, "", "usage: ferry [-h]\nferry: error: unrecognized arguments: --json\n"), { kind: "old-ferry" });
   assert.deepEqual(machinesAnswer(true, false, "", "Traceback...\nferry: the machines file is broken\n"), { kind: "error", message: "the machines file is broken" });
   assert.equal(machinesAnswer(true, true, "not json", "").kind, "error");
+});
+
+test("reads the GPUs Ferry can rent, and tells an old Ferry", () => {
+  const listed = offersAnswer(true, JSON.stringify({ understood: "RTX 3060, in Canada", offers: [
+    { id: 59812282, machine: 1, gpu: "RTX 3060", count: 1, memory: 12, price: 0.0644, reliability: 0.996, tier: "verified",
+      place: "Quebec, CA", download: 1465.2, up_cost: 0.0065 },
+    { id: 7, gpu: "RTX 4090", count: 2, memory: 24, price: 0.8 },
+    { gpu: "no id" },
+  ] }), "");
+  assert.equal(listed.kind, "offers");
+  if (listed.kind !== "offers") return;
+  assert.deepEqual(listed.offers.map((o) => o.id), [59812282, 7]);
+  assert.equal(listed.understood, "RTX 3060, in Canada");
+  assert.deepEqual(offerText(listed.offers[0]), {
+    label: "RTX 3060", description: "$0.064/h, Quebec, CA", detail: "12 GB, 99.6% reliable, verified host, 1465 Mb/s down" });
+  assert.equal(offerText(listed.offers[1]).label, "2x RTX 4090");
+  assert.deepEqual(offersAnswer(false, "", "usage: ferry\nferry: error: argument command: invalid choice: 'gpus'\n"), { kind: "old-ferry" });
+  assert.deepEqual(offersAnswer(false, "", "ferry: could not reach Vast.ai: timed out\n"), { kind: "error", message: "could not reach Vast.ai: timed out" });
+  assert.equal(offersAnswer(true, "not json", "").kind, "error");
+});
+
+test("reads the time a rented machine may run as Ferry does, and what it can cost", () => {
+  assert.equal(parseDuration("2h"), 7200);
+  assert.equal(parseDuration(" 1h30m "), 5400);
+  assert.equal(parseDuration("90m"), 5400);
+  assert.equal(parseDuration("1.5H"), 5400);
+  for (const bad of ["", "2", "5m", "2 hours", "h"]) assert.equal(parseDuration(bad), undefined);
+  const offer = { id: 1, gpu: "RTX 3060", count: 1, memory: 12, price: 0.0644, reliability: 1, tier: "verified", place: "?", download: 0, upCost: 0 };
+  assert.equal(dollars(mostCost(offer, 7200)), "$0.13");
+  assert.equal(dollars(mostCost(offer, 600)), "$0.01");
+  assert.equal(dollars(0.004), "under a cent");
+  assert.deepEqual(TIMES.map(([value]) => parseDuration(value)), [1800, 3600, 7200, 14400, 28800, 43200, 86400]);
+  assert.equal(timeCost(offer, 7200), "at most $0.13, data free");
+  assert.equal(timeCost({ ...offer, upCost: 0.0065 }, 7200), "at most $0.13, plus $0.0065 per GB you send it");
 });

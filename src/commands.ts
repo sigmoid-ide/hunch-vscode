@@ -5,7 +5,8 @@ import { shortIds } from "./model/format.ts";
 import type { Run } from "./model/run.ts";
 import { ALL, runsIn } from "./model/scope.ts";
 import { FILTER_MENU, hasFilter, search, withFilter } from "./model/search.ts";
-import { ferryMachines, hasHunch, hunch, installInTerminal, interpreter, runInTerminal, runOnInTerminal } from "./python.ts";
+import { offersAnswer, offerText, parseDuration, SEARCH_HINT, TIMES, timeCost, type Offer } from "./model/offers.ts";
+import { ferryMachines, hasHunch, hunch, installInTerminal, interpreter, loginInTerminal, runFerry, runInTerminal, runOnInTerminal } from "./python.ts";
 import type { HunchState } from "./state.ts";
 
 /** A right-click in the Runs view passes its row's context; buttons pass `{ runId }` too. */
@@ -179,23 +180,161 @@ export function registerCommands(state: HunchState): vscode.Disposable[] {
         return void vscode.window.showErrorMessage(`Running on another machine needs Ferry 0.1.2 or newer. Upgrade it with: ${upgrade}`);
       }
       if (answer.kind === "error") return void vscode.window.showErrorMessage(`Ferry: ${answer.message}`);
-      if (!answer.machines.length) return void noMachines();
-      const name = options?.machine ?? (await vscode.window.showQuickPick(
-        answer.machines.map((m) => ({ label: m.name, description: m.gpu ?? "no GPU", detail: m.user ? `${m.user}@${m.host}` : m.host })),
-        { title: `Run ${path.basename(uri.fsPath)} with Hunch on`, placeHolder: "One of your machines (ferry add)" },
-      ))?.label;
-      if (!name) return;
+      const file = path.basename(uri.fsPath);
+      let target: { where: string[]; label: string } | undefined;
+      if (options?.machine) {
+        target = { where: ["--on", options.machine], label: options.machine };
+      } else {
+        type Choice = vscode.QuickPickItem & { machine?: string; rent?: true; docs?: true };
+        const choices: Choice[] = answer.machines.map((m) => (
+          { label: m.name, description: m.gpu ?? "no GPU", detail: m.user ? `${m.user}@${m.host}` : m.host, machine: m.name }));
+        if (choices.length) choices.push({ label: "", kind: vscode.QuickPickItemKind.Separator });
+        choices.push({ label: "$(cloud) Rent a GPU on Vast.ai...", detail: "With your own Vast.ai account; given back once the run is home", rent: true });
+        if (!answer.machines.length) {
+          choices.push({ label: "$(add) Add a machine of your own...", detail: "In a terminal: ferry add mybox user@host", docs: true });
+        }
+        const chosen = await vscode.window.showQuickPick(choices, { title: `Run ${file} with Hunch on`, placeHolder: "One of your machines, or a GPU to rent" });
+        if (!chosen) return;
+        if (chosen.docs) return void vscode.env.openExternal(vscode.Uri.parse("https://github.com/sigmoid-ide/ferry#readme"));
+        target = chosen.rent ? await chooseRental(ferry, python, cwd) : { where: ["--on", chosen.machine!], label: chosen.machine! };
+      }
+      if (!target) return;
       const why = typeof options?.why === "string" ? options.why : await vscode.window.showInputBox({
-        title: `Run ${path.basename(uri.fsPath)} with Hunch on ${name}`,
+        title: `Run ${file} with Hunch on ${target.label}`,
         prompt: "Why are you running this?",
         placeHolder: "Your hypothesis, e.g. warmup 1500 steps (optional)",
         ignoreFocusOut: true,
       });
       if (why === undefined) return;
       await vscode.workspace.saveAll(false); // Ferry sends the code as it is on disk
-      runOnInTerminal(ferry, python, uri.fsPath, cwd, name, why.trim());
+      runOnInTerminal(ferry, python, uri.fsPath, cwd, target.where, target.label, why.trim());
     }),
   ];
+}
+
+/**
+ * Picks a GPU to rent on Vast.ai for one run: the offers (`ferry gpus --json`), then how long
+ * at most, which shows the hourly price and the most it can cost. Ferry rents it when the run
+ * starts and gives it back once the run is home.
+ */
+async function chooseRental(ferry: string[], python: string, cwd: string): Promise<{ where: string[]; label: string } | undefined> {
+  const upgrade = ferry[0] === "ferry" ? "uv tool upgrade sigmoid-ferry" : `${python} -m pip install -U sigmoid-ferry`;
+  const login = await runFerry(ferry, ["login", "vast", "--check"], cwd);
+  if (!login.ok) {
+    if (login.stderr.includes("invalid choice")) {
+      return void vscode.window.showErrorMessage(`Renting a GPU needs Ferry 0.2 or newer. Upgrade it with: ${upgrade}`);
+    }
+    const choice = await vscode.window.showWarningMessage(
+      "Renting a GPU needs your Vast.ai API key, once. Ferry keeps it in your system's keychain.", "Log In in Terminal");
+    if (choice) loginInTerminal(ferry, cwd);
+    return;
+  }
+  const picked = await pickOffer(ferry, cwd, upgrade);
+  if (!picked) return;
+  const { offer, words } = picked;
+  const time = await pickTime(offer);
+  if (!time) return;
+  // The search words go along, so an offer taken instead of this one (if it fails) is found the same way.
+  return { where: ["--rent", `${offer.id} ${words}`.trim(), "--for", time, "--yes"], label: `${offerText(offer).label} (Vast.ai)` };
+}
+
+/**
+ * The GPUs to rent, cheapest first. What is typed goes to Vast.ai as search words (`ferry gpus
+ * 4090 europe`), half a second after the typing stops, so a GPU that is not among the cheapest
+ * is found too.
+ */
+function pickOffer(ferry: string[], cwd: string, upgrade: string): Promise<{ offer: Offer; words: string } | undefined> {
+  type Item = vscode.QuickPickItem & { offer?: Offer };
+  return new Promise((resolve) => {
+    const pick = vscode.window.createQuickPick<Item>();
+    pick.title = "Rent a GPU on Vast.ai";
+    pick.placeholder = SEARCH_HINT;
+    pick.ignoreFocusOut = true;
+    let latest = 0;
+    let shown = "";
+    let done = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const search = async (text: string) => {
+      const ticket = ++latest;
+      pick.busy = true;
+      const out = await runFerry(ferry, ["gpus", "--json", "--", ...text.split(/\s+/).filter(Boolean)], cwd);
+      if (ticket !== latest || done) return; // a newer search has started
+      pick.busy = false;
+      const answer = offersAnswer(out.ok, out.stdout, out.stderr);
+      if (answer.kind === "old-ferry") {
+        void vscode.window.showErrorMessage(`Renting a GPU needs Ferry 0.2 or newer. Upgrade it with: ${upgrade}`);
+        return pick.hide();
+      }
+      // Every item shows whatever is typed: Vast.ai did the searching.
+      if (answer.kind === "error") {
+        pick.items = [{ label: `$(warning) ${answer.message}`, alwaysShow: true }];
+        return;
+      }
+      shown = text.trim();
+      pick.title = `Rent a GPU on Vast.ai: ${answer.understood}`;
+      pick.items = answer.offers.length
+        ? answer.offers.map((offer) => ({ ...offerText(offer), offer, alwaysShow: true }))
+        : [{ label: "No GPU to rent for that right now", detail: "Try fewer words, another GPU or a higher price", alwaysShow: true }];
+    };
+    pick.onDidChangeValue((text) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => void search(text), 500);
+    });
+    pick.onDidAccept(() => {
+      const offer = pick.selectedItems[0]?.offer;
+      if (!offer) return;
+      done = true;
+      resolve({ offer, words: shown });
+      pick.hide();
+    });
+    pick.onDidHide(() => {
+      clearTimeout(timer);
+      if (!done) resolve(undefined);
+      done = true;
+      pick.dispose();
+    });
+    pick.show();
+    void search("");
+  });
+}
+
+/** How long the rented machine may run at most, from a short list with what each can cost; "Other..." takes any time. */
+async function pickTime(offer: Offer): Promise<string | undefined> {
+  type Item = vscode.QuickPickItem & { value: string };
+  const items: Item[] = TIMES.map(([value, label]) => ({ label, description: timeCost(offer, parseDuration(value)!), value }));
+  items.push({ label: "Other...", description: "such as 90m or 1h30m", value: "" });
+  const chosen = await new Promise<Item | undefined>((resolve) => {
+    const pick = vscode.window.createQuickPick<Item>();
+    pick.title = `Rent ${offerText(offer).label} on Vast.ai for $${offer.price.toFixed(3)} an hour: for how long at most?`;
+    pick.placeholder = "The machine destroys itself after this time, even if the run has not ended. Enter rents it";
+    pick.items = items;
+    pick.activeItems = [items[2]]; // 2 hours
+    pick.ignoreFocusOut = true;
+    let done = false;
+    pick.onDidAccept(() => {
+      done = true;
+      resolve(pick.selectedItems[0]);
+      pick.hide();
+    });
+    pick.onDidHide(() => {
+      if (!done) resolve(undefined);
+      pick.dispose();
+    });
+    pick.show();
+  });
+  if (!chosen || chosen.value) return chosen?.value;
+  const typed = await vscode.window.showInputBox({
+    title: `Rent ${offerText(offer).label} on Vast.ai for $${offer.price.toFixed(3)} an hour: for how long at most?`,
+    prompt: "The machine destroys itself after this time, even if the run has not ended.",
+    placeHolder: "such as 90m or 1h30m",
+    ignoreFocusOut: true,
+    validateInput: (text) => {
+      const seconds = parseDuration(text);
+      if (seconds === undefined) return "A time such as 2h, 90m or 1h30m, at least 10m";
+      return { message: `${timeCost(offer, seconds)}. Enter rents it.`, severity: vscode.InputBoxValidationSeverity.Info };
+    },
+  });
+  return typed?.trim().toLowerCase();
 }
 
 async function offerFerry(python: string, cwd: string): Promise<void> {
@@ -204,12 +343,6 @@ async function offerFerry(python: string, cwd: string): Promise<void> {
     `Running on another machine needs Ferry, in ${python} or as the ferry command.`, "Install in Terminal", "Copy Command");
   if (choice === "Install in Terminal") installInTerminal(python, cwd, true);
   else if (choice === "Copy Command") void vscode.env.clipboard.writeText(command);
-}
-
-async function noMachines(): Promise<void> {
-  const choice = await vscode.window.showInformationMessage(
-    "Ferry has no machines yet. Add one in a terminal: ferry add mybox user@host", "How Ferry Works");
-  if (choice) void vscode.env.openExternal(vscode.Uri.parse("https://github.com/sigmoid-ide/ferry#readme"));
 }
 
 async function trusted(): Promise<boolean> {

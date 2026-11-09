@@ -124,32 +124,48 @@ export async function ferryMachines(python: string, cwd: string): Promise<{ ferr
 }
 
 /** Asks one Ferry for its machines, without a shell. */
-function machines(ferry: string[], cwd: string): Promise<MachinesAnswer> {
+async function machines(ferry: string[], cwd: string): Promise<MachinesAnswer> {
+  const out = await runFerry(ferry, ["machines", "--json"], cwd);
+  return machinesAnswer(!out.missing, out.ok, out.stdout, out.stderr);
+}
+
+/** Runs `ferry <args>` without a shell, so no argument needs quoting. */
+export function runFerry(ferry: string[], args: string[], cwd: string): Promise<Output> {
   return new Promise((resolve) => {
-    execFile(ferry[0], [...ferry.slice(1), "machines", "--json"], {
+    execFile(ferry[0], [...ferry.slice(1), ...args], {
       cwd,
       env: { ...process.env, PYTHONIOENCODING: "utf-8", PYTHONUTF8: "1" },
       timeout: 60_000,
       windowsHide: true,
       encoding: "utf8",
     }, (error, stdout, stderr) => {
-      const started = (error as NodeJS.ErrnoException | null)?.code !== "ENOENT";
-      resolve(machinesAnswer(started, !error, stdout, stderr));
+      const code = (error as NodeJS.ErrnoException | null)?.code;
+      resolve({ ok: !error, stdout, stderr, missing: code === "ENOENT" });
     });
   });
 }
 
 /**
- * Starts `ferry run --on <machine>` for a file in its own terminal. The interpreter goes after
- * `--` by its path, so Ferry builds the machine's environment from it, wherever Ferry is installed.
+ * Starts `ferry run <where>` for a file in its own terminal: `where` is `--on <machine>`, or
+ * `--rent <offer> --for <time> --yes`. The interpreter goes after `--` by its path, so Ferry
+ * builds the machine's environment from it, wherever Ferry is installed.
  */
-export function runOnInTerminal(ferry: string[], python: string, file: string, cwd: string, machine: string, why: string): vscode.Terminal {
+export function runOnInTerminal(ferry: string[], python: string, file: string, cwd: string, where: string[], label: string,
+  why: string): vscode.Terminal {
   const shell = shellKind();
-  const terminal = vscode.window.createTerminal({ name: `Hunch on ${machine}: ${path.basename(file)}`, cwd, env: { HUNCH_WHY: why } });
+  const terminal = vscode.window.createTerminal({ name: `Hunch on ${label}: ${path.basename(file)}`, cwd, env: { HUNCH_WHY: why } });
   const relative = path.relative(cwd, file);
   const script = relative && !relative.startsWith("..") && !path.isAbsolute(relative) ? relative : file;
   const start = ferry.map((part, i) => quote(part, shell, i === 0)).join(" ");
   terminal.show();
-  terminal.sendText(`${start} run --on ${quote(machine, shell)} -- ${quote(python, shell)} ${quote(script, shell)}`);
+  terminal.sendText(`${start} run ${where.map((part) => quote(part, shell)).join(" ")} -- ${quote(python, shell)} ${quote(script, shell)}`);
   return terminal;
+}
+
+/** Opens a terminal that asks for the Vast.ai API key, which Ferry keeps in the system's keychain. */
+export function loginInTerminal(ferry: string[], cwd: string): void {
+  const shell = shellKind();
+  const terminal = vscode.window.createTerminal({ name: "Log in to Vast.ai", cwd });
+  terminal.show();
+  terminal.sendText(`${ferry.map((part, i) => quote(part, shell, i === 0)).join(" ")} login vast`);
 }
